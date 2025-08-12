@@ -8,11 +8,15 @@ export function ShoppingList() {
   const removeItem = useShoppingStore((state) => state.removeItem);
 
   if (items.length === 0) {
-    return <p className="p-4 text-center text-gray-500">Список пуст</p>;
+    return (
+      <p className="p-4 text-center text-gray-400 italic">
+        📝 Список пуст. Добавьте первый товар!
+      </p>
+    );
   }
 
   return (
-    <ul className="divide-y border rounded">
+    <ul className="divide-y divide-gray-200 rounded-lg border border-gray-200 bg-white shadow-sm">
       {items.map((item: Item) => (
         <ShoppingItem
           key={item.id}
