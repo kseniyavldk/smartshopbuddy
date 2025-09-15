@@ -1,14 +1,29 @@
-import mongoose from "mongoose";
+import { Schema, model, Document } from "mongoose";
 
-const cartSchema = new mongoose.Schema({
-  chatId: { type: Number, required: true, unique: true },
-  familyId: { type: String },
-  products: [
-    {
-      text: { type: String, required: true },
-      bought: { type: Boolean, default: false },
-    },
-  ],
+export interface IProduct {
+  text: string;
+  bought: boolean;
+}
+
+export interface ICart extends Document {
+  chatId: number;
+  familyId: string;
+  products: IProduct[];
+  createdAt: Date;
+}
+
+const productSchema = new Schema<IProduct>({
+  text: { type: String, required: true },
+  bought: { type: Boolean, default: false },
 });
 
-export const Cart = mongoose.model("Cart", cartSchema);
+const cartSchema = new Schema<ICart>(
+  {
+    chatId: { type: Number, required: true },
+    familyId: { type: String, required: true },
+    products: [productSchema],
+  },
+  { timestamps: true }
+);
+
+export const Cart = model<ICart>("Cart", cartSchema);
