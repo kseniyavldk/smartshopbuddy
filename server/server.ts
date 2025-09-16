@@ -10,8 +10,6 @@ const start = async () => {
     await mongoose.connect(MONGO_URI);
     console.log("✅ MongoDB подключена");
 
-    startBot();
-
     server = app.listen(PORT, () =>
       console.log(`🚀 Сервер запущен на http://localhost:${PORT}`)
     );

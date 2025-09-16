@@ -4,7 +4,7 @@
   "main": "index.js",
   "scripts": {
     "start": "tsc && node dist/index.js",
-    "dev": "ts-node index.ts"
+    "dev": "ts-node server.ts"
   },
   "keywords": [],
   "author": "",
