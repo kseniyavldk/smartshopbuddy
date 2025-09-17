@@ -30,3 +30,13 @@ export const getCanonicalFamilyCart = async (familyId: string) => {
 export const generateFamilyId = (chatId: number | string) => {
   return `${chatId}-${Date.now()}`;
 };
+
+export const getUserFamilyCart = async (chatId: number) => {
+  const userCart = await Cart.findOne({ chatId });
+  if (!userCart?.familyId) return null;
+
+  const canonicalCart = await getCanonicalFamilyCart(userCart.familyId);
+  if (!canonicalCart) return null;
+
+  return { userCart, canonicalCart };
+};

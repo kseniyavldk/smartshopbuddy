@@ -6,9 +6,26 @@ import { Cart } from "../models/Cart";
 import {
   escapeMarkdownV2,
   sendFamilyCart,
-  getCanonicalFamilyCart,
   generateFamilyId,
+  getUserFamilyCart,
 } from "./helpers";
+
+// безопасная отправка сообщений
+const safeSend = async (
+  bot: TelegramBot,
+  chatId: number,
+  text: string,
+  opts = {}
+) => {
+  try {
+    return await bot.sendMessage(chatId, escapeMarkdownV2(text), {
+      parse_mode: "MarkdownV2",
+      ...opts,
+    });
+  } catch (e) {
+    console.error("Telegram send error:", e, text);
+  }
+};
 
 export const registerCommands = (bot: TelegramBot) => {
   // /start и /help
@@ -24,9 +41,7 @@ export const registerCommands = (bot: TelegramBot) => {
 /clear - Очистить корзину
 Добавляйте товары просто написав их в сообщении.
 `;
-    bot.sendMessage(chatId, escapeMarkdownV2(helpText), {
-      parse_mode: "MarkdownV2",
-    });
+    safeSend(bot, chatId, helpText);
   });
 
   // callback для кнопки "Купить"
@@ -39,11 +54,11 @@ export const registerCommands = (bot: TelegramBot) => {
       const chatId = query.message?.chat?.id;
       if (Number.isNaN(index) || chatId == null) return;
 
-      const userCart = await Cart.findOne({ chatId });
-      if (!userCart?.familyId) return;
+      const carts = await getUserFamilyCart(chatId);
+      if (!carts) return;
 
-      const canonicalCart = await getCanonicalFamilyCart(userCart.familyId);
-      if (!canonicalCart || !canonicalCart.products[index]) return;
+      const { canonicalCart } = carts;
+      if (!canonicalCart.products[index]) return;
 
       canonicalCart.products[index].bought =
         !canonicalCart.products[index].bought;
@@ -94,13 +109,14 @@ export const registerCommands = (bot: TelegramBot) => {
       }
       await cart.save();
 
-      const messageText = escapeMarkdownV2(
+      await safeSend(
+        bot,
+        chatId,
         `🎉 Семья создана!\nКод для присоединения: *${familyId}*`
       );
-      bot.sendMessage(chatId, messageText, { parse_mode: "MarkdownV2" });
     } catch (error) {
       console.error("/create handler error", error);
-      bot.sendMessage(msg.chat.id, "❌ Произошла ошибка при создании семьи.");
+      safeSend(bot, msg.chat.id, "❌ Произошла ошибка при создании семьи.");
     }
   });
 
@@ -110,27 +126,26 @@ export const registerCommands = (bot: TelegramBot) => {
       const chatId = msg.chat.id;
       const familyId = match?.[1]?.trim();
       if (!familyId)
-        return bot.sendMessage(
+        return safeSend(
+          bot,
           chatId,
           "❗ Укажите код семьи. Пример: /join <код>"
         );
 
       const familyCart = await Cart.findOne({ familyId });
       if (!familyCart)
-        return bot.sendMessage(chatId, "❌ Семья с таким кодом не найдена.");
+        return safeSend(bot, chatId, "❌ Семья с таким кодом не найдена.");
 
       let userCart = await Cart.findOne({ chatId });
       if (!userCart) userCart = new Cart({ chatId, familyId, products: [] });
       else userCart.familyId = familyId;
 
       await userCart.save();
-      bot.sendMessage(
-        chatId,
-        `✅ Вы присоединились к семье ${escapeMarkdownV2(familyId)}`
-      );
+      await safeSend(bot, chatId, `✅ Вы присоединились к семье ${familyId}`);
     } catch (error) {
       console.error("/join handler error", error);
-      bot.sendMessage(
+      safeSend(
+        bot,
         msg.chat.id,
         "❌ Произошла ошибка при присоединении к семье."
       );
@@ -141,20 +156,19 @@ export const registerCommands = (bot: TelegramBot) => {
   bot.onText(/\/cart/, async (msg) => {
     try {
       const chatId = msg.chat.id;
-      const userCart = await Cart.findOne({ chatId });
-      if (!userCart?.familyId)
+      const carts = await getUserFamilyCart(chatId);
+      if (!carts)
         return bot.sendMessage(
           chatId,
           "❗ Сначала создайте или присоединитесь к семье."
         );
-
-      const canonicalCart = await getCanonicalFamilyCart(userCart.familyId);
-      if (!canonicalCart) return;
+      const { canonicalCart } = carts;
 
       const cartText =
         canonicalCart.products
           .map((p) => `${p.bought ? "✅" : "❌"} ${escapeMarkdownV2(p.text)}`)
           .join("\n") || "пусто";
+
       const inlineKeyboard: InlineKeyboardButton[][] =
         canonicalCart.products.map((p, i) => [
           {
@@ -186,15 +200,13 @@ export const registerCommands = (bot: TelegramBot) => {
       if (!textToRemove)
         return bot.sendMessage(chatId, "❗ Укажите товар для удаления.");
 
-      const userCart = await Cart.findOne({ chatId });
-      if (!userCart?.familyId)
+      const carts = await getUserFamilyCart(chatId);
+      if (!carts)
         return bot.sendMessage(
           chatId,
           "❗ Сначала создайте или присоединитесь к семье."
         );
-
-      const canonicalCart = await getCanonicalFamilyCart(userCart.familyId);
-      if (!canonicalCart) return;
+      const { userCart, canonicalCart } = carts;
 
       const before = canonicalCart.products.length;
       canonicalCart.products = canonicalCart.products.filter(
@@ -220,18 +232,16 @@ export const registerCommands = (bot: TelegramBot) => {
   bot.onText(/\/clear/, async (msg) => {
     try {
       const chatId = msg.chat.id;
-      const userCart = await Cart.findOne({ chatId });
-      if (!userCart?.familyId)
+      const carts = await getUserFamilyCart(chatId);
+      if (!carts)
         return bot.sendMessage(
           chatId,
           "❗ Сначала создайте или присоединитесь к семье."
         );
+      const { userCart, canonicalCart } = carts;
 
-      const canonicalCart = await getCanonicalFamilyCart(userCart.familyId);
-      if (!canonicalCart) return; // <-- проверка
       canonicalCart.products = [];
       await canonicalCart.save();
-
       await sendFamilyCart(bot, userCart.familyId, "🗑 Корзина очищена.");
     } catch (error) {
       console.error("/clear handler error", error);
@@ -239,7 +249,6 @@ export const registerCommands = (bot: TelegramBot) => {
     }
   });
 
-  // добавить товар по обычному сообщению
   bot.on("message", async (msg) => {
     try {
       if (!msg.text || msg.text.startsWith("/")) return;
@@ -247,29 +256,23 @@ export const registerCommands = (bot: TelegramBot) => {
       if (!text) return;
 
       const chatId = msg.chat.id;
-      const userCart = await Cart.findOne({ chatId });
-      if (!userCart?.familyId) {
-        await bot.sendMessage(
+      const carts = await getUserFamilyCart(chatId);
+      if (!carts)
+        return bot.sendMessage(
           chatId,
           "❗ Сначала создайте или присоединитесь к семье."
         );
-        return;
-      }
-
-      const canonicalCart = await getCanonicalFamilyCart(userCart.familyId);
-      if (!canonicalCart) return;
+      const { userCart, canonicalCart } = carts;
 
       const exists = canonicalCart.products.some(
         (p) => p.text.toLowerCase() === text.toLowerCase()
       );
-      if (exists) {
-        await bot.sendMessage(
+      if (exists)
+        return bot.sendMessage(
           chatId,
           `ℹ️ Товар уже в корзине: ${escapeMarkdownV2(text)}`,
           { parse_mode: "MarkdownV2" }
         );
-        return;
-      }
 
       canonicalCart.products.push({ text, bought: false });
       await canonicalCart.save();
