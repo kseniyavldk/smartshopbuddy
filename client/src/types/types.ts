@@ -1,13 +1,13 @@
 export interface Item {
-  id: string | number;
+  id: string;
   text: string;
   bought: boolean;
 }
 
 export interface ShoppingState {
   items: Item[];
-  fetchCart: () => Promise<void>;
+  fetchCart: () => void;
   addItem: (text: string) => void;
-  toggleBought: (id: string | number) => void;
-  removeItem: (id: string | number) => void;
+  toggleBought: (id: string) => void;
+  removeItem: (id: string) => void;
 }

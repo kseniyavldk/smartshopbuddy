@@ -7,11 +7,9 @@ export function AddItemForm() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const value = text.trim();
-    if (value.length > 0 && value.length <= 50) {
-      addItem(value);
+    if (text.trim()) {
+      addItem?.(text.trim());
       setText("");
-      (e.target as HTMLFormElement).querySelector("input")?.blur();
     }
   };
 
@@ -23,12 +21,12 @@ export function AddItemForm() {
         onChange={(e) => setText(e.target.value)}
         placeholder="Введите название товара..."
         maxLength={50}
-        className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+        className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 shadow-sm
+                   focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
       />
       <button
         type="submit"
-        aria-label="Добавить товар"
-        className="bg-blue-500 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-blue-600 active:scale-95 transition-transform"
+        className="bg-blue-600 text-white rounded-lg px-4 py-2 font-medium hover:bg-blue-500 active:scale-95 transition-all shadow"
       >
         ➕
       </button>

@@ -1,36 +1,35 @@
 import type { Item } from "../types/types";
 
-interface ShoppingItemProps {
+interface Props {
   item: Item;
-  onToggle: (id: string | number) => void;
-  onRemove: (id: string | number) => void;
+  onToggle: (id: string) => void;
+  onRemove: (id: string) => void;
 }
 
-export function ShoppingItem({ item, onToggle, onRemove }: ShoppingItemProps) {
+export function ShoppingItem({ item, onToggle, onRemove }: Props) {
   return (
-    <li className="flex items-center justify-between px-3 py-2 hover:bg-gray-50 transition-colors">
-      <label className="flex items-center gap-3 flex-1 cursor-pointer">
+    <li className="flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors">
+      <label className="ms-2 text-sm font-medium text-gray-900 dark:text-gray-300">
         <input
           type="checkbox"
           checked={item.bought}
-          onChange={() => onToggle(item.id)}
-          className="w-5 h-5 accent-blue-500"
+          onChange={() => onToggle(String(item.id))}
+          className="h-5 w-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
         />
         <span
-          className={`truncate ${
-            item.bought ? "line-through text-gray-400" : "text-gray-800"
+          className={`text-gray-900 text-sm ${
+            item.bought ? "line-through text-gray-400" : ""
           }`}
         >
           {item.text}
         </span>
       </label>
       <button
-        onClick={() => onRemove(item.id)}
-        className="text-red-500 hover:text-red-700 p-1 rounded-full hover:bg-red-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
-        aria-label={`Удалить ${item.text}`}
-        title="Удалить товар"
+        onClick={() => onRemove(String(item.id))}
+        className="text-red-500 hover:text-red-700 transition-colors text-lg"
+        aria-label="Удалить товар"
       >
-        ✕
+        ❌
       </button>
     </li>
   );
