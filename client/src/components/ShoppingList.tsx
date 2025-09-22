@@ -16,7 +16,7 @@ export function ShoppingList() {
   }
 
   return (
-    <ul className="divide-y divide-gray-200 rounded-lg border border-gray-200 bg-white shadow-sm">
+    <ul className="divide-y divide-gray-200 border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 dark:bg-gray-800">
       {items.map((item: Item) => (
         <ShoppingItem
           key={item.id}

@@ -8,22 +8,28 @@ interface Props {
 
 export function ShoppingItem({ item, onToggle, onRemove }: Props) {
   return (
-    <li className="flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors">
-      <label className="ms-2 text-sm font-medium text-gray-900 dark:text-gray-300">
+    <li className="flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors rounded-md">
+      <div className="flex items-center">
+        {/* Чекбокс */}
         <input
+          id={`checkbox-${item.id}`}
           type="checkbox"
           checked={item.bought}
           onChange={() => onToggle(String(item.id))}
-          className="h-5 w-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+          className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded-sm focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
         />
-        <span
-          className={`text-gray-900 text-sm ${
+        {/* Текст */}
+        <label
+          htmlFor={`checkbox-${item.id}`}
+          className={`ms-2 text-sm font-medium text-gray-900 dark:text-gray-300 ${
             item.bought ? "line-through text-gray-400" : ""
           }`}
         >
           {item.text}
-        </span>
-      </label>
+        </label>
+      </div>
+
+      {/* Кнопка удаления */}
       <button
         onClick={() => onRemove(String(item.id))}
         className="text-red-500 hover:text-red-700 transition-colors text-lg"

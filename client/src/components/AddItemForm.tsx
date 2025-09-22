@@ -28,7 +28,7 @@ export function AddItemForm() {
         type="submit"
         className="bg-blue-600 text-white rounded-lg px-4 py-2 font-medium hover:bg-blue-500 active:scale-95 transition-all shadow"
       >
-        ➕
+        Добавить
       </button>
     </form>
   );
