@@ -22,12 +22,24 @@ export const registerMessageHandler = (bot: TelegramBot) => {
       if (!canonicalCart)
         return bot.sendMessage(chatId, "❌ Не удалось найти семейную корзину.");
 
+      const exists = canonicalCart.products.some(
+        (p) => p.text.toLowerCase() === text.toLowerCase()
+      );
+      if (exists) {
+        return bot.sendMessage(
+          chatId,
+          `ℹ️ Товар уже в корзине: ${escapeMarkdownV2(text)}`,
+          { parse_mode: "MarkdownV2" }
+        );
+      }
+
       canonicalCart.products.push({ text, bought: false });
       await canonicalCart.save();
 
       const cartText = canonicalCart.products
         .map((p) => `${p.bought ? "✅" : "❌"} ${p.text}`)
         .join("\n");
+
       await sendFamilyCart(
         bot,
         userCart.familyId,

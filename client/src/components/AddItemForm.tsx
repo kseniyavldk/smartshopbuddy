@@ -5,10 +5,10 @@ export function AddItemForm() {
   const [text, setText] = useState("");
   const addItem = useShoppingStore((state) => state.addItem);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (text.trim()) {
-      addItem?.(text.trim());
+      await addItem?.(text.trim());
       setText("");
     }
   };

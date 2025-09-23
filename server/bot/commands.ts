@@ -10,7 +10,6 @@ import {
   getUserFamilyCart,
 } from "./helpers";
 
-// безопасная отправка сообщений
 const safeSend = async (
   bot: TelegramBot,
   chatId: number,
@@ -44,7 +43,7 @@ export const registerCommands = (bot: TelegramBot) => {
     safeSend(bot, chatId, helpText);
   });
 
-  // callback для кнопки "Купить"
+  // callback_query для кнопок "Купить"
   bot.on("callback_query", async (query) => {
     try {
       const data = query.data || "";
@@ -120,7 +119,7 @@ export const registerCommands = (bot: TelegramBot) => {
     }
   });
 
-  // /join <код>
+  // /join
   bot.onText(/\/join (.+)/, async (msg, match) => {
     try {
       const chatId = msg.chat.id;
@@ -192,7 +191,7 @@ export const registerCommands = (bot: TelegramBot) => {
     }
   });
 
-  // /remove <товар>
+  // /remove
   bot.onText(/\/remove (.+)/, async (msg, match) => {
     try {
       const chatId = msg.chat.id;
@@ -246,44 +245,6 @@ export const registerCommands = (bot: TelegramBot) => {
     } catch (error) {
       console.error("/clear handler error", error);
       bot.sendMessage(msg.chat.id, "❌ Произошла ошибка при очистке корзины.");
-    }
-  });
-
-  bot.on("message", async (msg) => {
-    try {
-      if (!msg.text || msg.text.startsWith("/")) return;
-      const text = msg.text.trim();
-      if (!text) return;
-
-      const chatId = msg.chat.id;
-      const carts = await getUserFamilyCart(chatId);
-      if (!carts)
-        return bot.sendMessage(
-          chatId,
-          "❗ Сначала создайте или присоединитесь к семье."
-        );
-      const { userCart, canonicalCart } = carts;
-
-      const exists = canonicalCart.products.some(
-        (p) => p.text.toLowerCase() === text.toLowerCase()
-      );
-      if (exists)
-        return bot.sendMessage(
-          chatId,
-          `ℹ️ Товар уже в корзине: ${escapeMarkdownV2(text)}`,
-          { parse_mode: "MarkdownV2" }
-        );
-
-      canonicalCart.products.push({ text, bought: false });
-      await canonicalCart.save();
-
-      await sendFamilyCart(
-        bot,
-        userCart.familyId,
-        `➕ Добавлено: "${escapeMarkdownV2(text)}"`
-      );
-    } catch (error) {
-      console.error("message add item handler error", error);
     }
   });
 };

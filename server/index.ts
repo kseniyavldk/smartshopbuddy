@@ -47,16 +47,27 @@ app.get("/api/cart/:chatId", async (req, res) => {
 app.post("/api/cart/:chatId/add", async (req, res) => {
   try {
     const { chatId } = req.params;
-    const { text } = req.body;
-    const cart = await Cart.findOne({ chatId: Number(chatId) });
-    if (!cart) return res.status(404).json({ error: "Cart not found" });
+    const text = String(req.body.text || "")
+      .trim()
+      .toLowerCase();
+    if (!text) return res.status(400).json({ error: "Empty text" });
 
-    cart.products.push({ text, bought: false });
-    await cart.save();
-    res.json({ products: cart.products });
+    let cart = await Cart.findOne({ chatId: Number(chatId) });
+    if (!cart) {
+      cart = new Cart({ chatId: Number(chatId), products: [] });
+    }
+
+    const exists = cart.products.some((p) => p.text.toLowerCase() === text);
+
+    if (!exists) {
+      cart.products.push({ text, bought: false });
+      await cart.save();
+    }
+
+    res.status(200).json({ products: cart.products });
   } catch (e) {
-    console.error(e);
-    res.status(500).json({ error: "Internal Server Error" });
+    console.error("POST /api/cart/:chatId/add error", e);
+    return res.status(500).json({ error: "Internal Server Error" });
   }
 });
 

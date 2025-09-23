@@ -4,7 +4,7 @@ import type { ShoppingState, Item } from "../types/types";
 const API_URL = "http://localhost:4000/api";
 const CHAT_ID = "505853908";
 
-export const useShoppingStore = create<ShoppingState>((set, get) => ({
+export const useShoppingStore = create<ShoppingState>((set) => ({
   items: [],
 
   fetchCart: async () => {
@@ -37,17 +37,33 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
     }
   },
 
-  toggleBought: (id: string) => {
-    set((state) => ({
-      items: state.items.map((item: Item) =>
-        item.id === id ? { ...item, bought: !item.bought } : item
-      ),
-    }));
+  toggleBought: async (id: string) => {
+    try {
+      const res = await fetch(`${API_URL}/cart/${CHAT_ID}/toggle/${id}`, {
+        method: "PUT",
+      });
+      if (!res.ok) throw new Error("Failed to toggle item");
+      const data = await res.json();
+      set({
+        items: data.products.map((p: any) => ({ ...p, id: String(p._id) })),
+      });
+    } catch (err) {
+      console.error("toggleBought error:", err);
+    }
   },
 
-  removeItem: (id: string) => {
-    set((state) => ({
-      items: state.items.filter((item: Item) => item.id !== id),
-    }));
+  removeItem: async (id: string) => {
+    try {
+      const res = await fetch(`${API_URL}/cart/${CHAT_ID}/remove/${id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error("Failed to remove item");
+      const data = await res.json();
+      set({
+        items: data.products.map((p: any) => ({ ...p, id: String(p._id) })),
+      });
+    } catch (err) {
+      console.error("removeItem error:", err);
+    }
   },
 }));
