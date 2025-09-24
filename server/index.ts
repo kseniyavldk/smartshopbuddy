@@ -7,6 +7,8 @@ import { Cart } from "./models/Cart";
 import { registerCommands } from "./bot/commands";
 import { registerMessageHandler } from "./bot/messageHandler";
 import { registerCallbackHandler } from "./bot/callbackHandler";
+import { registerMainMenu } from "./bot/mainMenu";
+
 import { TOKEN, URL, PORT, USE_WEBHOOK } from "./config";
 
 const app = express();
@@ -17,6 +19,7 @@ let bot: TelegramBot;
 if (USE_WEBHOOK) {
   bot = new TelegramBot(TOKEN, { webHook: true });
   bot.setWebHook(`${URL}/bot${TOKEN}`);
+
   app.post(`/bot${TOKEN}`, (req, res) => {
     bot.processUpdate(req.body);
     res.sendStatus(200);
@@ -72,6 +75,7 @@ app.post("/api/cart/:chatId/add", async (req, res) => {
 });
 
 registerCommands(bot);
+registerMainMenu(bot);
 registerMessageHandler(bot);
 registerCallbackHandler(bot);
 
