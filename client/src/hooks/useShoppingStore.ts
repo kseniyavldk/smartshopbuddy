@@ -1,15 +1,36 @@
 import { create } from "zustand";
-import type { ShoppingState, Item } from "../types/types";
+import type { ShoppingState } from "../types/types";
 
 const API_URL = "http://localhost:4000/api";
-const CHAT_ID = "505853908";
 
-export const useShoppingStore = create<ShoppingState>((set) => ({
+export const useShoppingStore = create<ShoppingState>((set, get) => ({
   items: [],
+  mode: "local",
+  chatId: null,
+
+  setMode: (mode: "local" | "family", chatId?: string) => {
+    set({ mode, chatId });
+    if (mode === "local") {
+      const saved = localStorage.getItem("shopping-items");
+      if (saved) {
+        set({ items: JSON.parse(saved) });
+      }
+    } else {
+      get().fetchCart?.();
+    }
+  },
 
   fetchCart: async () => {
+    const { mode, chatId } = get();
+    if (mode === "local") {
+      const saved = localStorage.getItem("shopping-items");
+      if (saved) set({ items: JSON.parse(saved) });
+      return;
+    }
+    if (!chatId) return;
+
     try {
-      const res = await fetch(`${API_URL}/cart/${CHAT_ID}`);
+      const res = await fetch(`${API_URL}/cart/${chatId}`);
       if (!res.ok) throw new Error("Failed to load cart");
       const data = await res.json();
       set({
@@ -21,8 +42,19 @@ export const useShoppingStore = create<ShoppingState>((set) => ({
   },
 
   addItem: async (text: string) => {
+    const { mode, chatId, items } = get();
+
+    if (mode === "local") {
+      const newItem = { id: Date.now().toString(), text, bought: false };
+      const newItems = [...items, newItem];
+      localStorage.setItem("shopping-items", JSON.stringify(newItems));
+      set({ items: newItems });
+      return;
+    }
+
+    if (!chatId) return;
     try {
-      const res = await fetch(`${API_URL}/cart/${CHAT_ID}/add`, {
+      const res = await fetch(`${API_URL}/cart/${chatId}/add`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text }),
@@ -38,8 +70,20 @@ export const useShoppingStore = create<ShoppingState>((set) => ({
   },
 
   toggleBought: async (id: string) => {
+    const { mode, chatId, items } = get();
+
+    if (mode === "local") {
+      const updated = items.map((item) =>
+        item.id === id ? { ...item, bought: !item.bought } : item
+      );
+      localStorage.setItem("shopping-items", JSON.stringify(updated));
+      set({ items: updated });
+      return;
+    }
+
+    if (!chatId) return;
     try {
-      const res = await fetch(`${API_URL}/cart/${CHAT_ID}/toggle/${id}`, {
+      const res = await fetch(`${API_URL}/cart/${chatId}/toggle/${id}`, {
         method: "PUT",
       });
       if (!res.ok) throw new Error("Failed to toggle item");
@@ -53,8 +97,18 @@ export const useShoppingStore = create<ShoppingState>((set) => ({
   },
 
   removeItem: async (id: string) => {
+    const { mode, chatId, items } = get();
+
+    if (mode === "local") {
+      const updated = items.filter((item) => item.id !== id);
+      localStorage.setItem("shopping-items", JSON.stringify(updated));
+      set({ items: updated });
+      return;
+    }
+
+    if (!chatId) return;
     try {
-      const res = await fetch(`${API_URL}/cart/${CHAT_ID}/remove/${id}`, {
+      const res = await fetch(`${API_URL}/cart/${chatId}/remove/${id}`, {
         method: "DELETE",
       });
       if (!res.ok) throw new Error("Failed to remove item");
