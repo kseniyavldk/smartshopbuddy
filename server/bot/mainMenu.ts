@@ -7,6 +7,12 @@ export const registerMainMenu = (bot: TelegramBot) => {
     [{ text: "➕ Добавить товар", callback_data: "menu_add" }],
     [{ text: "🗑 Очистить корзину", callback_data: "menu_clear" }],
     [{ text: "❌ Удалить товар", callback_data: "menu_remove" }],
+    [
+      {
+        text: "🌐 Открыть приложение",
+        web_app: { url: "https://smartshopbuddy.onrender.com/" },
+      },
+    ],
   ];
 
   bot.onText(/\/menu/, async (msg) => {
@@ -34,12 +40,14 @@ export const registerMainMenu = (bot: TelegramBot) => {
           canonicalCart.products
             .map((p) => `${p.bought ? "✅" : "❌"} ${escapeMarkdownV2(p.text)}`)
             .join("\n") || "пусто";
+
         await bot.sendMessage(chatId, `🛒 Ваша корзина:\n${cartText}`, {
           parse_mode: "MarkdownV2",
         });
         await bot.answerCallbackQuery(query.id);
         break;
       }
+
       case "menu_add":
         await bot.sendMessage(
           chatId,
@@ -47,7 +55,8 @@ export const registerMainMenu = (bot: TelegramBot) => {
         );
         await bot.answerCallbackQuery(query.id);
         break;
-      case "menu_clear":
+
+      case "menu_clear": {
         const carts = await getUserFamilyCart(chatId);
         if (!carts) return;
         const { userCart, canonicalCart } = carts;
@@ -56,6 +65,8 @@ export const registerMainMenu = (bot: TelegramBot) => {
         await sendFamilyCart(bot, userCart.familyId, "🗑 Корзина очищена.");
         await bot.answerCallbackQuery(query.id);
         break;
+      }
+
       case "menu_remove":
         await bot.sendMessage(
           chatId,
