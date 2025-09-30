@@ -2,7 +2,8 @@ import TelegramBot, {
   InlineKeyboardButton,
   Message,
 } from "node-telegram-bot-api";
-import { Cart } from "../models/Cart";
+import { Types } from "mongoose";
+import { Cart, ICart, IProduct } from "../models/Cart";
 import {
   escapeMarkdownV2,
   sendFamilyCart,
@@ -15,7 +16,7 @@ const safeSend = async (
   chatId: number,
   text: string,
   opts = {}
-) => {
+): Promise<Message | null> => {
   try {
     return await bot.sendMessage(chatId, escapeMarkdownV2(text), {
       parse_mode: "MarkdownV2",
@@ -23,12 +24,29 @@ const safeSend = async (
     });
   } catch (e) {
     console.error("Telegram send error:", e, text);
+    return null;
   }
+};
+
+const formatCartMessage = (cart: ICart) => {
+  const text =
+    cart.products
+      .map((p) => `${p.bought ? "✅" : "❌"} ${escapeMarkdownV2(p.text)}`)
+      .join("\n") || "пусто";
+
+  const keyboard: InlineKeyboardButton[][] = cart.products.map((p, i) => [
+    {
+      text: `Купить ${p.text.length > 20 ? p.text.slice(0, 20) + "…" : p.text}`,
+      callback_data: `bought_${i}`,
+    },
+  ]);
+
+  return { text, keyboard };
 };
 
 export const registerCommands = (bot: TelegramBot) => {
   // /start и /help
-  bot.onText(/\/(start|help)/, (msg: Message) => {
+  bot.onText(/\/(start|help)/, (msg) => {
     const chatId = msg.chat.id;
     const helpText = `
 Привет! Я SmartShopBuddy 🛒
@@ -43,7 +61,6 @@ export const registerCommands = (bot: TelegramBot) => {
     safeSend(bot, chatId, helpText);
   });
 
-  // callback_query для кнопок "Купить"
   bot.on("callback_query", async (query) => {
     try {
       const data = query.data || "";
@@ -55,8 +72,8 @@ export const registerCommands = (bot: TelegramBot) => {
 
       const carts = await getUserFamilyCart(chatId);
       if (!carts) return;
-
       const { canonicalCart } = carts;
+
       if (!canonicalCart.products[index]) return;
 
       canonicalCart.products[index].bought =
@@ -65,27 +82,13 @@ export const registerCommands = (bot: TelegramBot) => {
 
       await bot.answerCallbackQuery(query.id, { text: "Обновлено" });
 
-      const cartText =
-        canonicalCart.products
-          .map((p) => `${p.bought ? "✅" : "❌"} ${escapeMarkdownV2(p.text)}`)
-          .join("\n") || "пусто";
-
-      const inlineKeyboard: InlineKeyboardButton[][] =
-        canonicalCart.products.map((p, i) => [
-          {
-            text: `Купить ${
-              p.text.length > 20 ? p.text.slice(0, 20) + "…" : p.text
-            }`,
-            callback_data: `bought_${i}`,
-          },
-        ]);
-
+      const { text, keyboard } = formatCartMessage(canonicalCart);
       if (query.message?.message_id) {
-        await bot.editMessageText(`🛒 Ваша корзина:\n${cartText}`, {
+        await bot.editMessageText(`🛒 Ваша корзина:\n${text}`, {
           chat_id: chatId,
           message_id: query.message.message_id,
           parse_mode: "MarkdownV2",
-          reply_markup: { inline_keyboard: inlineKeyboard },
+          reply_markup: { inline_keyboard: keyboard },
         });
       }
     } catch (error) {
@@ -95,19 +98,19 @@ export const registerCommands = (bot: TelegramBot) => {
 
   // /create
   bot.onText(/\/create/, async (msg) => {
+    const chatId = msg.chat.id;
     try {
-      const chatId = msg.chat.id;
       const familyId = generateFamilyId(chatId);
-
       let cart = await Cart.findOne({ chatId });
+
       if (cart) {
         cart.familyId = familyId;
-        cart.products = [];
+        cart.products.splice(0, cart.products.length);
       } else {
         cart = new Cart({ chatId, familyId, products: [] });
       }
-      await cart.save();
 
+      await cart.save();
       await safeSend(
         bot,
         chatId,
@@ -115,14 +118,14 @@ export const registerCommands = (bot: TelegramBot) => {
       );
     } catch (error) {
       console.error("/create handler error", error);
-      safeSend(bot, msg.chat.id, "❌ Произошла ошибка при создании семьи.");
+      safeSend(bot, chatId, "❌ Произошла ошибка при создании семьи.");
     }
   });
 
   // /join
   bot.onText(/\/join (.+)/, async (msg, match) => {
+    const chatId = msg.chat.id;
     try {
-      const chatId = msg.chat.id;
       const familyId = match?.[1]?.trim();
       if (!familyId)
         return safeSend(
@@ -143,108 +146,98 @@ export const registerCommands = (bot: TelegramBot) => {
       await safeSend(bot, chatId, `✅ Вы присоединились к семье ${familyId}`);
     } catch (error) {
       console.error("/join handler error", error);
-      safeSend(
-        bot,
-        msg.chat.id,
-        "❌ Произошла ошибка при присоединении к семье."
-      );
+      safeSend(bot, chatId, "❌ Произошла ошибка при присоединении к семье.");
     }
   });
 
   // /cart
   bot.onText(/\/cart/, async (msg) => {
+    const chatId = msg.chat.id;
     try {
-      const chatId = msg.chat.id;
       const carts = await getUserFamilyCart(chatId);
       if (!carts)
-        return bot.sendMessage(
+        return safeSend(
+          bot,
           chatId,
           "❗ Сначала создайте или присоединитесь к семье."
         );
+
       const { canonicalCart } = carts;
+      const { text, keyboard } = formatCartMessage(canonicalCart);
 
-      const cartText =
-        canonicalCart.products
-          .map((p) => `${p.bought ? "✅" : "❌"} ${escapeMarkdownV2(p.text)}`)
-          .join("\n") || "пусто";
-
-      const inlineKeyboard: InlineKeyboardButton[][] =
-        canonicalCart.products.map((p, i) => [
-          {
-            text: `Купить ${
-              p.text.length > 20 ? p.text.slice(0, 20) + "…" : p.text
-            }`,
-            callback_data: `bought_${i}`,
-          },
-        ]);
-
-      bot.sendMessage(chatId, `🛒 Ваша корзина:\n${cartText}`, {
-        parse_mode: "MarkdownV2",
-        reply_markup: { inline_keyboard: inlineKeyboard },
+      await safeSend(bot, chatId, `🛒 Ваша корзина:\n${text}`, {
+        reply_markup: { inline_keyboard: keyboard },
       });
     } catch (error) {
       console.error("/cart handler error", error);
-      bot.sendMessage(
-        msg.chat.id,
-        "❌ Произошла ошибка при отображении корзины."
-      );
+      safeSend(bot, chatId, "❌ Произошла ошибка при отображении корзины.");
     }
   });
 
   // /remove
   bot.onText(/\/remove (.+)/, async (msg, match) => {
+    const chatId = msg.chat.id;
     try {
-      const chatId = msg.chat.id;
       const textToRemove = match?.[1]?.trim();
       if (!textToRemove)
-        return bot.sendMessage(chatId, "❗ Укажите товар для удаления.");
+        return safeSend(bot, chatId, "❗ Укажите товар для удаления.");
 
       const carts = await getUserFamilyCart(chatId);
       if (!carts)
-        return bot.sendMessage(
+        return safeSend(
+          bot,
           chatId,
           "❗ Сначала создайте или присоединитесь к семье."
         );
+
       const { userCart, canonicalCart } = carts;
 
-      const before = canonicalCart.products.length;
-      canonicalCart.products = canonicalCart.products.filter(
-        (p) => p.text.toLowerCase() !== textToRemove.toLowerCase()
+      const product = canonicalCart.products.find(
+        (p: Types.Subdocument<unknown, any, IProduct> & IProduct) =>
+          p.text.toLowerCase() === textToRemove.toLowerCase()
       );
-      const removed = before - canonicalCart.products.length;
-      await canonicalCart.save();
 
-      await sendFamilyCart(
-        bot,
-        userCart.familyId,
-        removed > 0
-          ? `❌ "${escapeMarkdownV2(textToRemove)}" удален из корзины.`
-          : `ℹ️ Товар "${escapeMarkdownV2(textToRemove)}" не найден.`
-      );
+      if (product) {
+        canonicalCart.products.pull(product._id);
+        await canonicalCart.save();
+        await sendFamilyCart(
+          bot,
+          userCart.familyId,
+          `❌ "${escapeMarkdownV2(textToRemove)}" удален из корзины.`
+        );
+      } else {
+        await sendFamilyCart(
+          bot,
+          userCart.familyId,
+          `ℹ️ Товар "${escapeMarkdownV2(textToRemove)}" не найден.`
+        );
+      }
     } catch (error) {
       console.error("/remove handler error", error);
-      bot.sendMessage(msg.chat.id, "❌ Произошла ошибка при удалении товара.");
+      safeSend(bot, chatId, "❌ Произошла ошибка при удалении товара.");
     }
   });
 
   // /clear
   bot.onText(/\/clear/, async (msg) => {
+    const chatId = msg.chat.id;
     try {
-      const chatId = msg.chat.id;
       const carts = await getUserFamilyCart(chatId);
       if (!carts)
-        return bot.sendMessage(
+        return safeSend(
+          bot,
           chatId,
           "❗ Сначала создайте или присоединитесь к семье."
         );
+
       const { userCart, canonicalCart } = carts;
 
-      canonicalCart.products = [];
+      canonicalCart.products.splice(0, canonicalCart.products.length);
       await canonicalCart.save();
       await sendFamilyCart(bot, userCart.familyId, "🗑 Корзина очищена.");
     } catch (error) {
       console.error("/clear handler error", error);
-      bot.sendMessage(msg.chat.id, "❌ Произошла ошибка при очистке корзины.");
+      safeSend(bot, chatId, "❌ Произошла ошибка при очистке корзины.");
     }
   });
 };

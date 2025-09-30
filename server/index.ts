@@ -61,7 +61,6 @@ app.post("/api/cart/:chatId/add", async (req, res) => {
     }
 
     const exists = cart.products.some((p) => p.text.toLowerCase() === text);
-
     if (!exists) {
       cart.products.push({ text, bought: false });
       await cart.save();
@@ -71,6 +70,25 @@ app.post("/api/cart/:chatId/add", async (req, res) => {
   } catch (e) {
     console.error("POST /api/cart/:chatId/add error", e);
     return res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+app.delete("/api/cart/:chatId/remove/:id", async (req, res) => {
+  try {
+    const { chatId, id } = req.params;
+    const cart = await Cart.findOne({ chatId: Number(chatId) });
+    if (!cart) return res.status(404).json({ error: "Cart not found" });
+
+    const product = cart.products.id(id);
+    if (!product) return res.status(404).json({ error: "Product not found" });
+
+    product.deleteOne();
+    await cart.save();
+
+    res.status(200).json({ products: cart.products });
+  } catch (e) {
+    console.error("DELETE /api/cart/:chatId/remove/:id error", e);
+    res.status(500).json({ error: "Internal Server Error" });
   }
 });
 

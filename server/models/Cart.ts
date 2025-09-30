@@ -1,6 +1,6 @@
-import { Schema, model, Document } from "mongoose";
+import { Schema, model, Document, Types } from "mongoose";
 
-export interface IProduct {
+export interface IProduct extends Document {
   text: string;
   bought: boolean;
 }
@@ -8,8 +8,9 @@ export interface IProduct {
 export interface ICart extends Document {
   chatId: number;
   familyId: string;
-  products: IProduct[];
+  products: Types.DocumentArray<IProduct>;
   createdAt: Date;
+  updatedAt: Date;
 }
 
 const productSchema = new Schema<IProduct>({
