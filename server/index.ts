@@ -14,6 +14,13 @@ import { TOKEN, URL, PORT, USE_WEBHOOK } from "./config";
 const app = express();
 app.use(express.json());
 
+app.use(
+  cors({
+    origin: ["http://localhost:5173", "https://smartshopbuddy.onrender.com"],
+    methods: ["GET", "POST", "PUT", "DELETE"],
+  })
+);
+
 let bot: TelegramBot;
 
 if (USE_WEBHOOK) {

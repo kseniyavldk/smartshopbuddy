@@ -1,43 +1,50 @@
 import { create } from "zustand";
 import type { ShoppingState } from "../types/types";
 
-const API_URL = "http://localhost:4000/api";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5173/api";
+
+const mapProducts = (products: any[]) =>
+  products.map((p) => ({ id: String(p._id), text: p.text, bought: p.bought }));
 
 export const useShoppingStore = create<ShoppingState>((set, get) => ({
   items: [],
   mode: "local",
   chatId: null,
 
-  setMode: (mode: "local" | "family", chatId?: string) => {
-    set({ mode, chatId });
+  setMode: (mode, chatId) => {
+    set({ mode, chatId: chatId ?? null });
+
     if (mode === "local") {
       const saved = localStorage.getItem("shopping-items");
       if (saved) {
         set({ items: JSON.parse(saved) });
+      } else {
+        set({ items: [] });
       }
-    } else {
-      get().fetchCart?.();
+    } else if (chatId) {
+      // для семьи сразу тянем корзину
+      get().fetchCart();
     }
   },
 
   fetchCart: async () => {
     const { mode, chatId } = get();
+
     if (mode === "local") {
       const saved = localStorage.getItem("shopping-items");
-      if (saved) set({ items: JSON.parse(saved) });
+      set({ items: saved ? JSON.parse(saved) : [] });
       return;
     }
+
     if (!chatId) return;
 
     try {
       const res = await fetch(`${API_URL}/cart/${chatId}`);
       if (!res.ok) throw new Error("Failed to load cart");
       const data = await res.json();
-      set({
-        items: data.products.map((p: any) => ({ ...p, id: String(p._id) })),
-      });
+      set({ items: mapProducts(data.products) });
     } catch (err) {
-      console.error("fetchCart error:", err);
+      console.error("[fetchCart] error:", err);
     }
   },
 
@@ -53,6 +60,7 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
     }
 
     if (!chatId) return;
+
     try {
       const res = await fetch(`${API_URL}/cart/${chatId}/add`, {
         method: "POST",
@@ -61,11 +69,9 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
       });
       if (!res.ok) throw new Error("Failed to add item");
       const data = await res.json();
-      set({
-        items: data.products.map((p: any) => ({ ...p, id: String(p._id) })),
-      });
+      set({ items: mapProducts(data.products) });
     } catch (err) {
-      console.error("addItem error:", err);
+      console.error("[addItem] error:", err);
     }
   },
 
@@ -82,17 +88,16 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
     }
 
     if (!chatId) return;
+
     try {
       const res = await fetch(`${API_URL}/cart/${chatId}/toggle/${id}`, {
         method: "PUT",
       });
       if (!res.ok) throw new Error("Failed to toggle item");
       const data = await res.json();
-      set({
-        items: data.products.map((p: any) => ({ ...p, id: String(p._id) })),
-      });
+      set({ items: mapProducts(data.products) });
     } catch (err) {
-      console.error("toggleBought error:", err);
+      console.error("[toggleBought] error:", err);
     }
   },
 
@@ -107,17 +112,16 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
     }
 
     if (!chatId) return;
+
     try {
       const res = await fetch(`${API_URL}/cart/${chatId}/remove/${id}`, {
         method: "DELETE",
       });
       if (!res.ok) throw new Error("Failed to remove item");
       const data = await res.json();
-      set({
-        items: data.products.map((p: any) => ({ ...p, id: String(p._id) })),
-      });
+      set({ items: mapProducts(data.products) });
     } catch (err) {
-      console.error("removeItem error:", err);
+      console.error("[removeItem] error:", err);
     }
   },
 }));
