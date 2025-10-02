@@ -11,10 +11,19 @@ export default function App() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetchCart?.();
-  }, [fetchCart]);
+    const savedMode = localStorage.getItem("shopping-mode") as
+      | "local"
+      | "family"
+      | null;
+    const savedChatId = localStorage.getItem("shopping-chatId");
+    if (savedMode) {
+      setMode(savedMode, savedChatId || undefined);
+    } else {
+      fetchCart?.();
+    }
+  }, [fetchCart, setMode]);
 
-  const handleJoinFamily = () => {
+  const handleJoinFamily = async () => {
     if (!inputId.trim()) {
       setError("Введите Chat ID семьи");
       return;
@@ -23,9 +32,36 @@ export default function App() {
       setError("Chat ID должен содержать только цифры");
       return;
     }
-    setMode("family", inputId.trim());
-    setShowPopup(false);
-    setError("");
+
+    try {
+      const res = await fetch(
+        `${import.meta.env.VITE_API_URL}/cart/${inputId.trim()}`
+      );
+
+      if (!res.ok) {
+        throw new Error("Семья не найдена");
+      }
+
+      const data = await res.json();
+
+      if (data && Array.isArray(data.products)) {
+        setMode("family", inputId.trim());
+        localStorage.setItem("shopping-mode", "family");
+        localStorage.setItem("shopping-chatId", inputId.trim());
+        setShowPopup(false);
+        setError("");
+      } else {
+        setError("Семья не найдена");
+      }
+    } catch (err) {
+      setError("Такой семьи не существует");
+    }
+  };
+
+  const handleLeaveFamily = () => {
+    setMode("local");
+    localStorage.setItem("shopping-mode", "local");
+    localStorage.removeItem("shopping-chatId");
   };
 
   return (
@@ -43,6 +79,7 @@ export default function App() {
           <ShoppingList />
         </div>
 
+        {/* кнопки входа/выхода */}
         {mode === "local" || (mode === "family" && !chatId) ? (
           <button
             onClick={() => setShowPopup(true)}
@@ -50,8 +87,16 @@ export default function App() {
           >
             🔑 Войти в семью
           </button>
-        ) : null}
+        ) : (
+          <button
+            onClick={handleLeaveFamily}
+            className="w-full mt-4 bg-red-600 text-white px-4 py-2 rounded-xl hover:bg-red-700 transition"
+          >
+            🚪 Выйти из семьи
+          </button>
+        )}
 
+        {/* popup для ввода chatId */}
         {showPopup && (
           <div className="fixed inset-0 flex items-center justify-center z-50">
             <div className="absolute inset-0 bg-black/20 backdrop-blur-sm"></div>

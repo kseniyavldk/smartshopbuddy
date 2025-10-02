@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import type { ShoppingState } from "../types/types";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5173/api";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:4000/api";
 
 const mapProducts = (products: any[]) =>
   products.map((p) => ({ id: String(p._id), text: p.text, bought: p.bought }));
@@ -22,7 +22,6 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
         set({ items: [] });
       }
     } else if (chatId) {
-      // для семьи сразу тянем корзину
       get().fetchCart();
     }
   },
@@ -40,6 +39,11 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
 
     try {
       const res = await fetch(`${API_URL}/cart/${chatId}`);
+      if (res.status === 404) {
+        set({ items: [] });
+        alert("Такой семьи не существует");
+        return;
+      }
       if (!res.ok) throw new Error("Failed to load cart");
       const data = await res.json();
       set({ items: mapProducts(data.products) });

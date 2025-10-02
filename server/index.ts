@@ -1,5 +1,7 @@
 import TelegramBot from "node-telegram-bot-api";
 import express from "express";
+import mongoose from "mongoose";
+
 import cors from "cors";
 
 import { Cart } from "./models/Cart";
@@ -35,39 +37,65 @@ if (USE_WEBHOOK) {
   bot = new TelegramBot(TOKEN, { polling: true });
 }
 
-app.use(
-  cors({
-    origin: "http://localhost:5173",
-    methods: ["GET", "POST", "PUT", "DELETE"],
-  })
-);
+function parseChatId(chatId: string): number | null {
+  const id = Number(chatId);
+  if (isNaN(id)) return null;
+  return id;
+}
 
 app.get("/api/cart/:chatId", async (req, res) => {
   try {
-    const { chatId } = req.params;
-    const cart = await Cart.findOne({ chatId: Number(chatId) });
+    const chatIdNum = parseChatId(req.params.chatId);
+    if (chatIdNum === null) {
+      return res.status(400).json({ error: "Invalid chatId" });
+    }
+
+    const cart = await Cart.findOne({ chatId: chatIdNum });
     if (!cart) return res.status(404).json({ error: "Cart not found" });
+
     res.json({ products: cart.products });
   } catch (e) {
-    console.error(e);
+    console.error("[GET /api/cart/:chatId] error:", e);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+app.get("/api/cart/family/:chatId", async (req, res) => {
+  try {
+    const chatIdNum = Number(req.params.chatId);
+    if (isNaN(chatIdNum))
+      return res.status(400).json({ error: "Invalid chatId" });
+
+    const cart = await Cart.findOne({ chatId: chatIdNum });
+    if (!cart) return res.status(404).json({ error: "Family cart not found" });
+
+    res.json({ products: cart.products });
+  } catch (e) {
+    console.error("[GET /cart/family/:chatId] error:", e);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
 app.post("/api/cart/:chatId/add", async (req, res) => {
   try {
-    const { chatId } = req.params;
-    const text = String(req.body.text || "")
-      .trim()
-      .toLowerCase();
-    if (!text) return res.status(400).json({ error: "Empty text" });
-
-    let cart = await Cart.findOne({ chatId: Number(chatId) });
-    if (!cart) {
-      cart = new Cart({ chatId: Number(chatId), products: [] });
+    const chatIdNum = parseChatId(req.params.chatId);
+    if (chatIdNum === null) {
+      return res.status(400).json({ error: "Invalid chatId" });
     }
 
-    const exists = cart.products.some((p) => p.text.toLowerCase() === text);
+    const text = String(req.body.text || "").trim();
+    if (!text) return res.status(400).json({ error: "Empty text" });
+
+    let cart = await Cart.findOne({ chatId: chatIdNum });
+    if (!cart) {
+      cart = new Cart({ chatId: chatIdNum, products: [] });
+    }
+
+    const normalized = text.toLowerCase();
+    const exists = cart.products.some(
+      (p) => p.text.toLowerCase() === normalized
+    );
+
     if (!exists) {
       cart.products.push({ text, bought: false });
       await cart.save();
@@ -75,15 +103,44 @@ app.post("/api/cart/:chatId/add", async (req, res) => {
 
     res.status(200).json({ products: cart.products });
   } catch (e) {
-    console.error("POST /api/cart/:chatId/add error", e);
+    console.error("[POST /api/cart/:chatId/add] error:", e);
     return res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
+app.put("/api/cart/:chatId/toggle/:id", async (req, res) => {
+  try {
+    const chatIdNum = Number(req.params.chatId);
+    if (isNaN(chatIdNum))
+      return res.status(400).json({ error: "Invalid chatId" });
+
+    const { id } = req.params;
+    const cart = await Cart.findOne({ chatId: chatIdNum });
+    if (!cart) return res.status(404).json({ error: "Cart not found" });
+
+    const product = cart.products.find(
+      (p) => p._id instanceof mongoose.Types.ObjectId && p._id.toString() === id
+    );
+    if (!product) return res.status(404).json({ error: "Product not found" });
+
+    product.bought = !product.bought;
+    await cart.save();
+
+    res.status(200).json({ products: cart.products });
+  } catch (e) {
+    console.error("[PUT /cart/:chatId/toggle/:id] error:", e);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
 app.delete("/api/cart/:chatId/remove/:id", async (req, res) => {
   try {
-    const { chatId, id } = req.params;
-    const cart = await Cart.findOne({ chatId: Number(chatId) });
+    const chatIdNum = parseChatId(req.params.chatId);
+    if (chatIdNum === null) {
+      return res.status(400).json({ error: "Invalid chatId" });
+    }
+
+    const { id } = req.params;
+    const cart = await Cart.findOne({ chatId: chatIdNum });
     if (!cart) return res.status(404).json({ error: "Cart not found" });
 
     const product = cart.products.id(id);
@@ -94,7 +151,7 @@ app.delete("/api/cart/:chatId/remove/:id", async (req, res) => {
 
     res.status(200).json({ products: cart.products });
   } catch (e) {
-    console.error("DELETE /api/cart/:chatId/remove/:id error", e);
+    console.error("[DELETE /api/cart/:chatId/remove/:id] error:", e);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
