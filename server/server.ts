@@ -1,7 +1,6 @@
 import mongoose from "mongoose";
 import { app } from "./index";
 import { PORT, MONGO_URI } from "./config";
-import { startBot } from "./bot";
 
 let server: import("http").Server | undefined;
 

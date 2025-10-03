@@ -11,15 +11,24 @@ export default function App() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const savedMode = localStorage.getItem("shopping-mode") as
-      | "local"
-      | "family"
-      | null;
-    const savedChatId = localStorage.getItem("shopping-chatId");
-    if (savedMode) {
-      setMode(savedMode, savedChatId || undefined);
+    const params = new URLSearchParams(window.location.search);
+    const urlChatId = params.get("chatId");
+
+    if (urlChatId) {
+      setMode("family", urlChatId);
+      localStorage.setItem("shopping-mode", "family");
+      localStorage.setItem("shopping-chatId", urlChatId);
     } else {
-      fetchCart?.();
+      const savedMode = localStorage.getItem("shopping-mode") as
+        | "local"
+        | "family"
+        | null;
+      const savedChatId = localStorage.getItem("shopping-chatId");
+      if (savedMode) {
+        setMode(savedMode, savedChatId || undefined);
+      } else {
+        fetchCart?.();
+      }
     }
   }, [fetchCart, setMode]);
 
@@ -38,12 +47,9 @@ export default function App() {
         `${import.meta.env.VITE_API_URL}/cart/${inputId.trim()}`
       );
 
-      if (!res.ok) {
-        throw new Error("Семья не найдена");
-      }
+      if (!res.ok) throw new Error("Семья не найдена");
 
       const data = await res.json();
-
       if (data && Array.isArray(data.products)) {
         setMode("family", inputId.trim());
         localStorage.setItem("shopping-mode", "family");
@@ -53,7 +59,7 @@ export default function App() {
       } else {
         setError("Семья не найдена");
       }
-    } catch (err) {
+    } catch {
       setError("Такой семьи не существует");
     }
   };
@@ -79,7 +85,6 @@ export default function App() {
           <ShoppingList />
         </div>
 
-        {/* кнопки входа/выхода */}
         {mode === "local" || (mode === "family" && !chatId) ? (
           <button
             onClick={() => setShowPopup(true)}
@@ -96,7 +101,6 @@ export default function App() {
           </button>
         )}
 
-        {/* popup для ввода chatId */}
         {showPopup && (
           <div className="fixed inset-0 flex items-center justify-center z-50">
             <div className="absolute inset-0 bg-black/20 backdrop-blur-sm"></div>

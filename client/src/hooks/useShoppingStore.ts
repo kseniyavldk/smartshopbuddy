@@ -10,6 +10,7 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
   items: [],
   mode: "local",
   chatId: null,
+  isLoading: false,
 
   setMode: (mode, chatId) => {
     set({ mode, chatId: chatId ?? null });
@@ -38,6 +39,7 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
     if (!chatId) return;
 
     try {
+      set({ isLoading: true });
       const res = await fetch(`${API_URL}/cart/${chatId}`);
       if (res.status === 404) {
         set({ items: [] });
@@ -49,6 +51,8 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
       set({ items: mapProducts(data.products) });
     } catch (err) {
       console.error("[fetchCart] error:", err);
+    } finally {
+      set({ isLoading: false });
     }
   },
 
@@ -66,6 +70,7 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
     if (!chatId) return;
 
     try {
+      set({ isLoading: true });
       const res = await fetch(`${API_URL}/cart/${chatId}/add`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -76,6 +81,8 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
       set({ items: mapProducts(data.products) });
     } catch (err) {
       console.error("[addItem] error:", err);
+    } finally {
+      set({ isLoading: false });
     }
   },
 
@@ -94,6 +101,7 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
     if (!chatId) return;
 
     try {
+      set({ isLoading: true });
       const res = await fetch(`${API_URL}/cart/${chatId}/toggle/${id}`, {
         method: "PUT",
       });
@@ -102,6 +110,8 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
       set({ items: mapProducts(data.products) });
     } catch (err) {
       console.error("[toggleBought] error:", err);
+    } finally {
+      set({ isLoading: false });
     }
   },
 
@@ -118,6 +128,7 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
     if (!chatId) return;
 
     try {
+      set({ isLoading: true });
       const res = await fetch(`${API_URL}/cart/${chatId}/remove/${id}`, {
         method: "DELETE",
       });
@@ -126,6 +137,8 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
       set({ items: mapProducts(data.products) });
     } catch (err) {
       console.error("[removeItem] error:", err);
+    } finally {
+      set({ isLoading: false });
     }
   },
 }));

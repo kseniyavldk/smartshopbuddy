@@ -9,8 +9,11 @@ export const startBot = async () => {
     await bot.setWebHook(`${URL}/bot${TOKEN}`);
     console.log("📡 Бот работает через WEBHOOK");
   } else {
+    const tempBot = new TelegramBot(TOKEN);
+    await tempBot.deleteWebHook();
+    console.log("✅ Старый webhook удалён");
+
     bot = new TelegramBot(TOKEN, { polling: true });
-    await bot.deleteWebHook();
     console.log("🔄 Бот работает через POLLING");
   }
 };

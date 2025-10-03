@@ -8,6 +8,9 @@ export interface ShoppingState {
   items: Item[];
   mode: "local" | "family";
   chatId: string | null;
+
+  isLoading: boolean;
+
   setMode: (mode: "local" | "family", chatId?: string) => void;
   fetchCart: () => void | Promise<void>;
   addItem: (text: string) => void | Promise<void>;
