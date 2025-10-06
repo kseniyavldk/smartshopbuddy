@@ -8,7 +8,7 @@ export interface ShoppingState {
   items: Item[];
   mode: "local" | "family";
   chatId: string | null;
-
+  archiveItems: Item[];
   isLoading: boolean;
 
   setMode: (mode: "local" | "family", chatId?: string) => void;
@@ -16,4 +16,6 @@ export interface ShoppingState {
   addItem: (text: string) => void | Promise<void>;
   toggleBought: (id: string) => void | Promise<void>;
   removeItem: (id: string) => void | Promise<void>;
+  fetchArchive: () => Promise<void>;
+  restoreFromArchive: (id: string) => Promise<void>;
 }

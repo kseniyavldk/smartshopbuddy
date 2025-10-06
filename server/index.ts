@@ -76,6 +76,91 @@ app.get("/api/cart/family/:chatId", async (req, res) => {
   }
 });
 
+app.get("/api/cart/:chatId/archive", async (req, res) => {
+  try {
+    const chatIdNum = Number(req.params.chatId);
+    if (isNaN(chatIdNum))
+      return res.status(400).json({ error: "Invalid chatId" });
+
+    let cart = await Cart.findOne({ chatId: chatIdNum });
+    console.log(cart?.archivedProducts);
+
+    const archived = cart?.archivedProducts || [];
+
+    res.json({ archived });
+  } catch (e) {
+    console.error("[GET /api/cart/:chatId/archive] error:", e);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+app.delete("/api/cart/:chatId/archive/:id", async (req, res) => {
+  try {
+    const chatIdNum = Number(req.params.chatId);
+    const { id } = req.params;
+    const cart = await Cart.findOne({ chatId: chatIdNum });
+    if (!cart) return res.status(404).json({ error: "Cart not found" });
+
+    const product = cart.archivedProducts.id(id);
+    if (!product)
+      return res.status(404).json({ error: "Product not found in archive" });
+
+    product.deleteOne();
+    await cart.save();
+
+    res.json({ products: cart.products, archived: cart.archivedProducts });
+  } catch (e) {
+    console.error("[DELETE /api/cart/:chatId/archive/:id] error:", e);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+app.post("/api/cart/:chatId/archive/:id", async (req, res) => {
+  try {
+    const chatIdNum = Number(req.params.chatId);
+    const { id } = req.params;
+    const cart = await Cart.findOne({ chatId: chatIdNum });
+    if (!cart) return res.status(404).json({ error: "Cart not found" });
+
+    const productIndex = cart.products.findIndex(
+      (p) => (p._id as mongoose.Types.ObjectId).toString() === id
+    );
+
+    if (productIndex === -1)
+      return res.status(404).json({ error: "Product not found" });
+
+    const [product] = cart.products.splice(productIndex, 1);
+    cart.archivedProducts.push(product);
+    await cart.save();
+
+    res.json({ products: cart.products, archived: cart.archivedProducts });
+  } catch (e) {
+    console.error("[POST /cart/:chatId/archive/:id] error:", e);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+app.post("/api/cart/:chatId/restore/:id", async (req, res) => {
+  try {
+    const chatIdNum = Number(req.params.chatId);
+    const { id } = req.params;
+    const cart = await Cart.findOne({ chatId: chatIdNum });
+    if (!cart) return res.status(404).json({ error: "Cart not found" });
+
+    const product = cart.archivedProducts.id(id);
+    if (!product) return res.status(404).json({ error: "Product not found" });
+
+    cart.products.push({ text: product.text, bought: false });
+    product.deleteOne();
+    await cart.save();
+
+    res.json({ products: cart.products, archived: cart.archivedProducts });
+  } catch (e) {
+    console.error("[POST /api/cart/:chatId/restore/:id] error:", e);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
 app.post("/api/cart/:chatId/add", async (req, res) => {
   try {
     const chatIdNum = parseChatId(req.params.chatId);

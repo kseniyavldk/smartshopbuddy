@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { AddItemForm } from "./components/AddItemForm";
 import { ShoppingList } from "./components/ShoppingList";
 import { useShoppingStore } from "./hooks/useShoppingStore";
+import { PurchaseHistory } from "./components/PurchaseHistory";
 
 export default function App() {
   const { fetchCart, setMode, mode, chatId } = useShoppingStore();
@@ -83,6 +84,9 @@ export default function App() {
 
         <div className="mt-6">
           <ShoppingList />
+        </div>
+        <div className="mt-6">
+          <PurchaseHistory />
         </div>
 
         {mode === "local" || (mode === "family" && !chatId) ? (

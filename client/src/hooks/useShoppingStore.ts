@@ -8,6 +8,7 @@ const mapProducts = (products: any[]) =>
 
 export const useShoppingStore = create<ShoppingState>((set, get) => ({
   items: [],
+  archiveItems: [],
   mode: "local",
   chatId: null,
   isLoading: false,
@@ -115,13 +116,69 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
     }
   },
 
+  fetchArchive: async () => {
+    const { chatId, mode } = get();
+    if (mode === "local" || !chatId) return;
+
+    try {
+      set({ isLoading: true });
+      const res = await fetch(`${API_URL}/cart/${chatId}/archive`);
+
+      if (res.status === 404) {
+        set({ archiveItems: [] });
+        return;
+      }
+
+      if (!res.ok) throw new Error("Failed to load archive");
+
+      const data = await res.json();
+      set({ archiveItems: mapProducts(data.archived) });
+    } catch (err) {
+      console.error("[fetchArchive] error:", err);
+      set({ archiveItems: [] });
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  restoreFromArchive: async (id: string) => {
+    const { chatId } = get();
+    if (!chatId) return;
+
+    try {
+      set({ isLoading: true });
+      const res = await fetch(`${API_URL}/cart/${chatId}/restore/${id}`, {
+        method: "POST",
+      });
+      if (!res.ok) throw new Error("Failed to restore item");
+      const data = await res.json();
+      set({
+        items: mapProducts(data.products),
+        archiveItems: mapProducts(data.archived),
+      });
+    } catch (err) {
+      console.error("[restoreFromArchive] error:", err);
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
   removeItem: async (id: string) => {
-    const { mode, chatId, items } = get();
+    const { mode, chatId, items, archiveItems } = get();
 
     if (mode === "local") {
-      const updated = items.filter((item) => item.id !== id);
-      localStorage.setItem("shopping-items", JSON.stringify(updated));
-      set({ items: updated });
+      let updatedItems = items.filter((item) => item.id !== id);
+      let updatedArchive = archiveItems.filter((item) => item.id !== id);
+
+      const removedFromItems = items.find((item) => item.id === id);
+      if (removedFromItems) {
+        updatedArchive = [...archiveItems, removedFromItems];
+      }
+
+      localStorage.setItem("shopping-items", JSON.stringify(updatedItems));
+      localStorage.setItem("archive-items", JSON.stringify(updatedArchive));
+
+      set({ items: updatedItems, archiveItems: updatedArchive });
       return;
     }
 
@@ -129,12 +186,36 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
 
     try {
       set({ isLoading: true });
-      const res = await fetch(`${API_URL}/cart/${chatId}/remove/${id}`, {
-        method: "DELETE",
-      });
-      if (!res.ok) throw new Error("Failed to remove item");
-      const data = await res.json();
-      set({ items: mapProducts(data.products) });
+
+      const inItems = items.find((item) => item.id === id);
+      if (inItems) {
+        const res = await fetch(`${API_URL}/cart/${chatId}/archive/${id}`, {
+          method: "POST",
+        });
+        if (!res.ok) throw new Error("Failed to archive item");
+        const data = await res.json();
+        set({
+          items: mapProducts(data.products),
+          archiveItems: mapProducts(data.archived),
+        });
+        return;
+      }
+
+      const inArchive = archiveItems.find((item) => item.id === id);
+      if (inArchive) {
+        const res = await fetch(`${API_URL}/cart/${chatId}/archive/${id}`, {
+          method: "DELETE",
+        });
+        if (!res.ok) throw new Error("Failed to delete item");
+        const data = await res.json();
+        set({
+          items: mapProducts(data.products),
+          archiveItems: mapProducts(data.archived),
+        });
+        return;
+      }
+
+      console.warn("Item not found in items or archive");
     } catch (err) {
       console.error("[removeItem] error:", err);
     } finally {
