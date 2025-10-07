@@ -12,6 +12,8 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
   mode: "local",
   chatId: null,
   isLoading: false,
+  families: [],
+  activeFamilyId: null,
 
   setMode: (mode, chatId) => {
     set({ mode, chatId: chatId ?? null });
@@ -220,6 +222,54 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
       console.error("[removeItem] error:", err);
     } finally {
       set({ isLoading: false });
+    }
+  },
+  fetchFamilies: async (chatId: string) => {
+    try {
+      const res = await fetch(`${API_URL}/families/${chatId}`);
+      if (!res.ok) throw new Error("Failed to fetch families");
+      const data = await res.json();
+      set({
+        families: data.families || [],
+        activeFamilyId: data.activeFamilyId || null,
+      });
+    } catch (err) {
+      console.error("[fetchFamilies] error:", err);
+    }
+  },
+
+  addFamily: async (chatId: string, familyId: string) => {
+    try {
+      const res = await fetch(`${API_URL}/families/${chatId}/add`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ familyId }),
+      });
+      if (!res.ok) throw new Error("Failed to add family");
+      const data = await res.json();
+      set({
+        families: data.families,
+        activeFamilyId: data.activeFamilyId,
+      });
+    } catch (err) {
+      console.error("[addFamily] error:", err);
+    }
+  },
+
+  switchFamily: async (chatId: string, familyId: string) => {
+    try {
+      const res = await fetch(
+        `${API_URL}/families/${chatId}/switch/${familyId}`,
+        {
+          method: "PUT",
+        }
+      );
+      if (!res.ok) throw new Error("Failed to switch family");
+      const data = await res.json();
+      set({ activeFamilyId: data.activeFamilyId });
+      await get().fetchCart();
+    } catch (err) {
+      console.error("[switchFamily] error:", err);
     }
   },
 }));

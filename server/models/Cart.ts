@@ -8,6 +8,8 @@ export interface IProduct extends Document {
 export interface ICart extends Document {
   chatId: number;
   familyId: string;
+  familyIds: string[];
+  activeFamilyId?: string;
   products: Types.DocumentArray<IProduct>;
   archivedProducts: Types.DocumentArray<IProduct>;
   createdAt: Date;

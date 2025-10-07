@@ -161,6 +161,66 @@ app.post("/api/cart/:chatId/restore/:id", async (req, res) => {
   }
 });
 
+app.get("/api/families/:chatId", async (req, res) => {
+  try {
+    const chatIdNum = Number(req.params.chatId);
+    const cart = await Cart.findOne({ chatId: chatIdNum });
+    if (!cart) return res.status(404).json({ error: "Cart not found" });
+    res.json({
+      families: cart.familyIds,
+      activeFamilyId: cart.activeFamilyId || null,
+    });
+  } catch (e) {
+    console.error("[GET /api/families/:chatId] error:", e);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+app.post("/api/families/:chatId/add", async (req, res) => {
+  try {
+    const chatIdNum = Number(req.params.chatId);
+    const { familyId } = req.body;
+    if (!familyId) return res.status(400).json({ error: "familyId required" });
+
+    let cart = await Cart.findOne({ chatId: chatIdNum });
+    if (!cart)
+      cart = new Cart({ chatId: chatIdNum, familyIds: [], products: [] });
+
+    if (!cart.familyIds.includes(familyId)) {
+      cart.familyIds.push(familyId);
+      if (!cart.activeFamilyId) cart.activeFamilyId = familyId;
+      await cart.save();
+    }
+
+    res.json({ families: cart.familyIds, activeFamilyId: cart.activeFamilyId });
+  } catch (e) {
+    console.error("[POST /api/families/:chatId/add] error:", e);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+app.put("/api/families/:chatId/switch/:familyId", async (req, res) => {
+  try {
+    const chatIdNum = Number(req.params.chatId);
+    const { familyId } = req.params;
+
+    const cart = await Cart.findOne({ chatId: chatIdNum });
+    if (!cart) return res.status(404).json({ error: "Cart not found" });
+
+    if (!cart.familyIds.includes(familyId)) {
+      return res.status(400).json({ error: "Family not found in list" });
+    }
+
+    cart.activeFamilyId = familyId;
+    await cart.save();
+
+    res.json({ activeFamilyId: cart.activeFamilyId });
+  } catch (e) {
+    console.error("[PUT /api/families/:chatId/switch/:familyId] error:", e);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
 app.post("/api/cart/:chatId/add", async (req, res) => {
   try {
     const chatIdNum = parseChatId(req.params.chatId);

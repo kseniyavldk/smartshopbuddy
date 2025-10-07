@@ -4,6 +4,7 @@ import { AddItemForm } from "./components/AddItemForm";
 import { ShoppingList } from "./components/ShoppingList";
 import { useShoppingStore } from "./hooks/useShoppingStore";
 import { PurchaseHistory } from "./components/PurchaseHistory";
+import { FamilySelector } from "./components/FamilySelector";
 
 export default function App() {
   const { fetchCart, setMode, mode, chatId } = useShoppingStore();
@@ -88,6 +89,8 @@ export default function App() {
         <div className="mt-6">
           <PurchaseHistory />
         </div>
+
+        {mode === "family" && chatId && <FamilySelector />}
 
         {mode === "local" || (mode === "family" && !chatId) ? (
           <button
