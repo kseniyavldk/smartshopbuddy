@@ -192,6 +192,8 @@ export const registerCommands = (bot: TelegramBot) => {
 
       const { userCart, canonicalCart } = carts;
 
+      if (!userCart.familyId) return;
+
       const product = canonicalCart.products.find(
         (p: Types.Subdocument<unknown, any, IProduct> & IProduct) =>
           p.text.toLowerCase() === textToRemove.toLowerCase()
@@ -231,6 +233,8 @@ export const registerCommands = (bot: TelegramBot) => {
         );
 
       const { userCart, canonicalCart } = carts;
+
+      if (!userCart.familyId) return;
 
       canonicalCart.products.splice(0, canonicalCart.products.length);
       await canonicalCart.save();

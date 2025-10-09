@@ -20,25 +20,20 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
 
     if (mode === "local") {
       const saved = localStorage.getItem("shopping-items");
-      if (saved) {
-        set({ items: JSON.parse(saved) });
-      } else {
-        set({ items: [] });
-      }
+      set({ items: saved ? JSON.parse(saved) : [] });
     } else if (chatId) {
       get().fetchCart();
+      get().fetchFamilies(chatId);
     }
   },
 
   fetchCart: async () => {
     const { mode, chatId } = get();
-
     if (mode === "local") {
       const saved = localStorage.getItem("shopping-items");
       set({ items: saved ? JSON.parse(saved) : [] });
       return;
     }
-
     if (!chatId) return;
 
     try {
@@ -46,7 +41,7 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
       const res = await fetch(`${API_URL}/cart/${chatId}`);
       if (res.status === 404) {
         set({ items: [] });
-        alert("Такой семьи не существует");
+        console.warn("Cart not found for chatId:", chatId);
         return;
       }
       if (!res.ok) throw new Error("Failed to load cart");
@@ -54,6 +49,7 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
       set({ items: mapProducts(data.products) });
     } catch (err) {
       console.error("[fetchCart] error:", err);
+      set({ items: [] });
     } finally {
       set({ isLoading: false });
     }
@@ -224,9 +220,17 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
       set({ isLoading: false });
     }
   },
-  fetchFamilies: async (chatId: string) => {
+
+  fetchFamilies: async (chatId: string | number) => {
+    if (!chatId) return;
     try {
+      set({ isLoading: true });
       const res = await fetch(`${API_URL}/families/${chatId}`);
+      if (res.status === 404) {
+        console.warn("No families found for chatId:", chatId);
+        set({ families: [], activeFamilyId: null });
+        return;
+      }
       if (!res.ok) throw new Error("Failed to fetch families");
       const data = await res.json();
       set({
@@ -235,6 +239,9 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
       });
     } catch (err) {
       console.error("[fetchFamilies] error:", err);
+      set({ families: [], activeFamilyId: null });
+    } finally {
+      set({ isLoading: false });
     }
   },
 

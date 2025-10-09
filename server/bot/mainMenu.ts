@@ -60,6 +60,14 @@ export const registerMainMenu = (bot: TelegramBot) => {
         const carts = await getUserFamilyCart(chatId);
         if (!carts) return;
         const { userCart, canonicalCart } = carts;
+
+        if (!userCart.familyId) {
+          await bot.answerCallbackQuery(query.id, {
+            text: "❌ Семья не найдена",
+          });
+          return;
+        }
+
         canonicalCart.products.splice(0, canonicalCart.products.length);
         await canonicalCart.save();
         await sendFamilyCart(bot, userCart.familyId, "🗑 Корзина очищена.");
