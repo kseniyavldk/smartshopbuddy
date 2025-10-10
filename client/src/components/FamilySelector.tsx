@@ -18,7 +18,7 @@ export function FamilySelector() {
         {families.map((family) => (
           <button
             key={family.id}
-            onClick={() => switchFamily(chatId, family.id)}
+            onClick={() => switchFamily(chatId, String(family.id))}
             className={`px-3 py-1 rounded-xl border ${
               family.id === activeFamilyId
                 ? "bg-blue-600 text-white"

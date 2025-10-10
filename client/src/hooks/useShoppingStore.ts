@@ -233,9 +233,17 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
       }
       if (!res.ok) throw new Error("Failed to fetch families");
       const data = await res.json();
+
       set({
-        families: data.families || [],
-        activeFamilyId: data.activeFamilyId || null,
+        families: (data.families || []).map(
+          (f: string | { id: string; name?: string }) =>
+            typeof f === "string"
+              ? { id: String(f) }
+              : { id: String(f.id), name: f.name }
+        ),
+        activeFamilyId: data.activeFamilyId
+          ? String(data.activeFamilyId)
+          : null,
       });
     } catch (err) {
       console.error("[fetchFamilies] error:", err);
@@ -265,15 +273,13 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
 
   switchFamily: async (chatId: string, familyId: string) => {
     try {
-      const res = await fetch(
-        `${API_URL}/families/${chatId}/switch/${familyId}`,
-        {
-          method: "PUT",
-        }
-      );
+      const idStr = String(familyId);
+      const res = await fetch(`${API_URL}/families/${chatId}/switch/${idStr}`, {
+        method: "PUT",
+      });
       if (!res.ok) throw new Error("Failed to switch family");
       const data = await res.json();
-      set({ activeFamilyId: data.activeFamilyId });
+      set({ activeFamilyId: String(data.activeFamilyId) });
       await get().fetchCart();
     } catch (err) {
       console.error("[switchFamily] error:", err);
