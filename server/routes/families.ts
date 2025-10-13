@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { Cart } from "../models/Cart";
 import { parseChatId } from "../utils/parseChatId";
+import { checkRole } from "../middleware/checkRole";
 
 const router = Router();
 
@@ -24,7 +25,7 @@ router.get("/:chatId", async (req, res) => {
   }
 });
 
-router.post("/:chatId/add", async (req, res) => {
+router.post("/:chatId/add", checkRole("admin"), async (req, res) => {
   const chatIdNum = parseChatId(req.params.chatId);
   if (!chatIdNum) return res.status(400).json({ error: "Invalid chatId" });
 

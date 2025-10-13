@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { Cart } from "../models/Cart";
 import { parseChatId } from "../utils/parseChatId";
+import { checkRole } from "../middleware/checkRole";
 
 const router = Router();
 
@@ -55,7 +56,7 @@ router.put("/:chatId/toggle/:id", async (req, res) => {
   res.json({ products: cart.products });
 });
 
-router.delete("/:chatId/remove/:id", async (req, res) => {
+router.delete("/:chatId/remove/:id", checkRole("admin"), async (req, res) => {
   const chatIdNum = parseChatId(req.params.chatId);
   if (chatIdNum === null)
     return res.status(400).json({ error: "Invalid chatId" });
@@ -73,7 +74,7 @@ router.delete("/:chatId/remove/:id", async (req, res) => {
   res.json({ products: cart.products });
 });
 
-router.post("/:chatId/archive/:id", async (req, res) => {
+router.post("/:chatId/archive/:id", checkRole("admin"), async (req, res) => {
   const chatIdNum = Number(req.params.chatId);
   const { id } = req.params;
 
@@ -101,7 +102,7 @@ router.get("/:chatId/archive", async (req, res) => {
   res.json({ archived: cart.archivedProducts });
 });
 
-router.post("/:chatId/restore/:id", async (req, res) => {
+router.post("/:chatId/restore/:id", checkRole("admin"), async (req, res) => {
   const chatIdNum = Number(req.params.chatId);
   const { id } = req.params;
 
