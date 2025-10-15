@@ -5,13 +5,17 @@ export interface IProduct extends Document {
   bought: boolean;
 }
 
-export interface ICart extends Document {
-  chatId: number;
-  familyId?: string;
-  familyIds: string[];
-  activeFamilyId?: string;
+export interface IFamilyCart extends Document {
+  familyId: string;
   products: Types.DocumentArray<IProduct>;
   archivedProducts: Types.DocumentArray<IProduct>;
+}
+
+export interface ICart extends Document {
+  chatId: number;
+  familyIds: string[];
+  activeFamilyId?: string;
+  carts: Types.DocumentArray<IFamilyCart>;
   createdAt: Date;
   updatedAt: Date;
   familyRoles: Map<string, string>;
@@ -22,19 +26,19 @@ const productSchema = new Schema<IProduct>({
   bought: { type: Boolean, default: false },
 });
 
+const familyCartSchema = new Schema<IFamilyCart>({
+  familyId: { type: String, required: true },
+  products: [productSchema],
+  archivedProducts: [productSchema],
+});
+
 const cartSchema = new Schema<ICart>(
   {
     chatId: { type: Number, required: true },
-    familyId: { type: String },
     familyIds: { type: [String], default: [] },
     activeFamilyId: { type: String },
-    products: [productSchema],
-    archivedProducts: [productSchema],
-    familyRoles: {
-      type: Map,
-      of: String,
-      default: {},
-    },
+    carts: { type: [familyCartSchema], default: [] },
+    familyRoles: { type: Map, of: String, default: {} },
   },
   { timestamps: true }
 );
