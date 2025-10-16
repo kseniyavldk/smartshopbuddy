@@ -6,6 +6,7 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:4000/api";
 const mapProducts = (products: any[]) =>
   products.map((p) => ({
     id: String(p._id),
+    _id: p._id,
     text: p.text,
     bought: p.bought,
     updatedBy: p.updatedBy,
@@ -47,6 +48,13 @@ function getActiveFamilyCart(data: any) {
     archivedProducts:
       cartFromCarts?.archivedProducts || data.archivedProducts || [],
   };
+}
+
+function mergeArchive(current: any[], incoming: any[]) {
+  const newItems = incoming.filter(
+    (item) => !current.some((i) => i.id === item.id)
+  );
+  return [...current, ...newItems];
 }
 
 export const useShoppingStore = create<ShoppingState>((set, get) => ({
@@ -93,7 +101,13 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
 
       const data = await res.json();
       const activeFamilyCart = getActiveFamilyCart(data);
-      set({ items: mapProducts(activeFamilyCart.products) });
+      set((state) => ({
+        items: mapProducts(activeFamilyCart.products),
+        archiveItems: mergeArchive(
+          state.archiveItems,
+          mapProducts(activeFamilyCart.archivedProducts)
+        ),
+      }));
     } catch (err) {
       console.error("[fetchCart] error:", err);
       set({ items: [] });
@@ -123,10 +137,14 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
         username || "anonymous"
       );
       const activeFamilyCart = getActiveFamilyCart(data);
-      set({
+
+      set((state) => ({
         items: mapProducts(activeFamilyCart.products),
-        archiveItems: mapProducts(activeFamilyCart.archivedProducts),
-      });
+        archiveItems: mergeArchive(
+          state.archiveItems,
+          mapProducts(activeFamilyCart.archivedProducts)
+        ),
+      }));
     } catch (err) {
       console.error("[addItem] error:", err);
     } finally {
@@ -135,10 +153,10 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
   },
 
   toggleBought: async (id: string) => {
-    const { mode, chatId, items, username } = get();
+    const { mode, chatId, username } = get();
 
     if (mode === "local") {
-      const updated = items.map((item) =>
+      const updated = get().items.map((item) =>
         item.id === id ? { ...item, bought: !item.bought } : item
       );
       localStorage.setItem("shopping-items", JSON.stringify(updated));
@@ -156,10 +174,13 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
         username || "anonymous"
       );
       const activeFamilyCart = getActiveFamilyCart(data);
-      set({
+      set((state) => ({
         items: mapProducts(activeFamilyCart.products),
-        archiveItems: mapProducts(activeFamilyCart.archivedProducts),
-      });
+        archiveItems: mergeArchive(
+          state.archiveItems,
+          mapProducts(activeFamilyCart.archivedProducts)
+        ),
+      }));
     } catch (err) {
       console.error("[toggleBought] error:", err);
     } finally {
@@ -174,50 +195,53 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
     try {
       set({ isLoading: true });
       const res = await fetch(`${API_URL}/cart/${chatId}/archive`);
-      if (res.status === 404) {
-        set({ archiveItems: [] });
-        return;
-      }
+      if (res.status === 404) return;
       if (!res.ok) throw new Error("Failed to load archive");
 
       const data = await res.json();
-
       const activeFamilyCart = data.carts?.find(
         (c: any) => c.familyId === data.activeFamilyId
       );
-
       const archivedProducts =
         activeFamilyCart?.archived || data.archived || [];
 
-      set({ archiveItems: mapProducts(archivedProducts) });
+      set((state) => ({
+        archiveItems: mergeArchive(
+          state.archiveItems,
+          mapProducts(archivedProducts)
+        ),
+      }));
     } catch (err) {
       console.error("[fetchArchive] error:", err);
-      set({ archiveItems: [] });
     } finally {
       set({ isLoading: false });
     }
   },
 
   restoreFromArchive: async (id: string) => {
-    const { chatId, username } = get();
+    const { chatId, items, archiveItems, username } = get();
     if (!chatId) return;
 
+    const item = archiveItems.find((i) => i.id === id);
+    if (!item) return;
+
+    set({
+      items: [...items, item],
+      archiveItems: archiveItems.filter((i) => i.id !== id),
+    });
+
     try {
-      set({ isLoading: true });
-      const data = await apiFetch(
+      await apiFetch(
         `${API_URL}/cart/${chatId}/restore/${id}`,
         { method: "POST" },
         username || "anonymous"
       );
-      const activeFamilyCart = getActiveFamilyCart(data);
-      set({
-        items: mapProducts(activeFamilyCart.products),
-        archiveItems: mapProducts(activeFamilyCart.archivedProducts),
-      });
     } catch (err) {
       console.error("[restoreFromArchive] error:", err);
-    } finally {
-      set({ isLoading: false });
+      set({
+        items,
+        archiveItems,
+      });
     }
   },
 
@@ -225,21 +249,20 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
     const { mode, chatId, items, archiveItems, username } = get();
 
     if (mode === "local") {
-      const updatedItems = items.filter((item) => item.id !== id);
-      const updatedArchive = archiveItems.filter((item) => item.id !== id);
+      const itemInList = items.find((i) => i.id === id);
+      const itemInArchive = archiveItems.find((i) => i.id === id);
 
-      const removedFromItems = items.find((item) => item.id === id);
-      if (removedFromItems) {
-        set({
-          items: updatedItems,
-          archiveItems: [...archiveItems, removedFromItems],
-        });
-      } else {
+      if (itemInList) {
+        const updatedItems = items.filter((i) => i.id !== id);
+        const updatedArchive = [...archiveItems, itemInList];
         set({ items: updatedItems, archiveItems: updatedArchive });
+        localStorage.setItem("shopping-items", JSON.stringify(updatedItems));
+        localStorage.setItem("archive-items", JSON.stringify(updatedArchive));
+      } else if (itemInArchive) {
+        const updatedArchive = archiveItems.filter((i) => i.id !== id);
+        set({ archiveItems: updatedArchive });
+        localStorage.setItem("archive-items", JSON.stringify(updatedArchive));
       }
-
-      localStorage.setItem("shopping-items", JSON.stringify(updatedItems));
-      localStorage.setItem("archive-items", JSON.stringify(updatedArchive));
       return;
     }
 
@@ -248,40 +271,32 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
     try {
       set({ isLoading: true });
 
-      const inItems = items.find((item) => item.id === id);
-      const inArchive = archiveItems.find((item) => item.id === id);
+      const itemInList = items.find((i) => i.id === id);
+      const itemInArchive = archiveItems.find((i) => i.id === id);
 
-      if (inItems) {
-        const data = await apiFetch(
+      if (itemInList) {
+        set({
+          items: items.filter((i) => i.id !== id),
+          archiveItems: [...archiveItems, itemInList],
+        });
+
+        await apiFetch(
           `${API_URL}/cart/${chatId}/archive/${id}`,
           { method: "POST" },
           username || "anonymous"
         );
-        const activeFamilyCart = getActiveFamilyCart(data);
-        set({
-          items: mapProducts(activeFamilyCart.products),
-          archiveItems: mapProducts(activeFamilyCart.archivedProducts),
-        });
-        return;
-      }
+      } else if (itemInArchive) {
+        set({ archiveItems: archiveItems.filter((i) => i.id !== id) });
 
-      if (inArchive) {
-        const data = await apiFetch(
+        await apiFetch(
           `${API_URL}/cart/${chatId}/archive/${id}`,
           { method: "DELETE" },
           username || "anonymous"
         );
-        const activeFamilyCart = getActiveFamilyCart(data);
-        set({
-          items: mapProducts(activeFamilyCart.products),
-          archiveItems: mapProducts(activeFamilyCart.archivedProducts),
-        });
-        return;
       }
-
-      console.warn("Item not found in items or archive");
     } catch (err) {
       console.error("[removeItem] error:", err);
+      get().fetchCart();
     } finally {
       set({ isLoading: false });
     }

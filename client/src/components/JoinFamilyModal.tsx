@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useShoppingStore } from "../hooks/useShoppingStore";
+import toast from "react-hot-toast";
 
 interface Props {
   onClose: () => void;
@@ -9,28 +10,35 @@ export function JoinFamilyModal({ onClose }: Props) {
   const [inputId, setInputId] = useState("");
   const [error, setError] = useState("");
   const setMode = useShoppingStore((state) => state.setMode);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = () => {
     if (!inputId.trim()) {
       setError("Введите Chat ID семьи");
       return;
     }
-
     if (!/^\d+$/.test(inputId.trim())) {
       setError("Chat ID должен содержать только цифры");
       return;
     }
-
     setMode("family", inputId.trim());
+    toast.success("Вы вошли в семью!");
     setError("");
     onClose();
   };
 
+  useEffect(() => {
+    inputRef.current?.focus();
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      if (e.key === "Enter") handleSubmit();
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, []);
+
   return (
-    <div
-      className="fixed inset-0 flex items-center justify-center z-50 
-             bg-black bg-opacity-10 backdrop-blur-md"
-    >
+    <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-10 backdrop-blur-md">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center relative">
         <button
           onClick={onClose}
@@ -45,6 +53,7 @@ export function JoinFamilyModal({ onClose }: Props) {
 
         <input
           type="text"
+          ref={inputRef}
           value={inputId}
           onChange={(e) => setInputId(e.target.value)}
           placeholder="Например: 505853908"

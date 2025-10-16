@@ -1,16 +1,32 @@
 import "./index.css";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { AddItemForm } from "./components/AddItemForm";
 import { ShoppingList } from "./components/ShoppingList";
 import { useShoppingStore } from "./hooks/useShoppingStore";
 import { PurchaseHistory } from "./components/PurchaseHistory";
 import { FamilySelector } from "./components/FamilySelector";
+import { JoinFamilyModal } from "./components/JoinFamilyModal";
+import toast, { Toaster } from "react-hot-toast";
 
 export default function App() {
   const { fetchCart, setMode, mode, chatId } = useShoppingStore();
   const [showPopup, setShowPopup] = useState(false);
   const [inputId, setInputId] = useState("");
   const [error, setError] = useState("");
+  const [isOnline, setIsOnline] = useState(true);
+  const listRef = useRef<HTMLDivElement>(null);
+  const scrollPos = useRef(0);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -34,57 +50,40 @@ export default function App() {
     }
   }, [fetchCart, setMode]);
 
-  const handleJoinFamily = async () => {
-    if (!inputId.trim()) {
-      setError("Введите Chat ID семьи");
-      return;
-    }
-    if (!/^\d+$/.test(inputId.trim())) {
-      setError("Chat ID должен содержать только цифры");
-      return;
-    }
-
-    try {
-      const res = await fetch(
-        `${import.meta.env.VITE_API_URL}/cart/${inputId.trim()}`
-      );
-
-      if (!res.ok) throw new Error("Семья не найдена");
-
-      const data = await res.json();
-      if (data && Array.isArray(data.products)) {
-        setMode("family", inputId.trim());
-        localStorage.setItem("shopping-mode", "family");
-        localStorage.setItem("shopping-chatId", inputId.trim());
-        setShowPopup(false);
-        setError("");
-      } else {
-        setError("Семья не найдена");
-      }
-    } catch {
-      setError("Такой семьи не существует");
-    }
-  };
-
   const handleLeaveFamily = () => {
     setMode("local");
     localStorage.setItem("shopping-mode", "local");
     localStorage.removeItem("shopping-chatId");
+    toast.success("Вы покинули семью");
+  };
+
+  const saveScroll = () => {
+    if (listRef.current) scrollPos.current = listRef.current.scrollTop;
+  };
+  const restoreScroll = () => {
+    if (listRef.current) listRef.current.scrollTop = scrollPos.current;
   };
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-100 px-4">
+      <Toaster position="top-right" />
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm p-8">
+        {!isOnline && (
+          <p className="text-red-500 text-center mb-2">
+            ⚠️ Нет соединения, изменения сохранятся локально
+          </p>
+        )}
+
         <header className="mb-6 text-center">
           <h1 className="text-2xl font-bold text-blue-600">
             🛒 {mode === "local" ? "Личный список" : "Семейный список"}
           </h1>
         </header>
 
-        <AddItemForm />
+        <AddItemForm onAdded={restoreScroll} />
 
-        <div className="mt-6">
-          <ShoppingList />
+        <div className="mt-6" ref={listRef}>
+          <ShoppingList onScrollSave={saveScroll} />
         </div>
         <div className="mt-6">
           <PurchaseHistory />
@@ -109,34 +108,12 @@ export default function App() {
         )}
 
         {showPopup && (
-          <div className="fixed inset-0 flex items-center justify-center z-50">
-            <div className="absolute inset-0 bg-black/20 backdrop-blur-sm"></div>
-            <div className="relative bg-white rounded-xl shadow-lg p-6 w-80 text-center">
-              <h2 className="text-lg font-bold mb-3">Введите Chat ID</h2>
-              <input
-                type="text"
-                value={inputId}
-                onChange={(e) => setInputId(e.target.value)}
-                className="border border-gray-300 rounded-xl px-3 py-2 w-full mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Например: 505853908"
-              />
-              {error && <p className="text-red-500 text-sm mb-2">{error}</p>}
-              <div className="flex justify-between gap-2 mt-2">
-                <button
-                  onClick={() => setShowPopup(false)}
-                  className="w-1/2 bg-gray-300 rounded-xl px-3 py-2 hover:bg-gray-400"
-                >
-                  Отмена
-                </button>
-                <button
-                  onClick={handleJoinFamily}
-                  className="w-1/2 bg-blue-600 text-white px-3 py-2 rounded-xl hover:bg-blue-700 transition"
-                >
-                  Продолжить
-                </button>
-              </div>
-            </div>
-          </div>
+          <JoinFamilyModal
+            onClose={() => {
+              setShowPopup(false);
+              setError("");
+            }}
+          />
         )}
       </div>
     </div>

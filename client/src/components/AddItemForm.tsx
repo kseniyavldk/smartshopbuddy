@@ -1,7 +1,12 @@
 import { useState } from "react";
 import { useShoppingStore } from "../hooks/useShoppingStore";
+import toast from "react-hot-toast";
 
-export function AddItemForm() {
+interface Props {
+  onAdded?: () => void;
+}
+
+export function AddItemForm({ onAdded }: Props) {
   const [text, setText] = useState("");
   const addItem = useShoppingStore((state) => state.addItem);
 
@@ -9,7 +14,9 @@ export function AddItemForm() {
     e.preventDefault();
     if (text.trim()) {
       await addItem?.(text.trim());
+      toast.success("Товар добавлен!");
       setText("");
+      onAdded?.();
     }
   };
 
