@@ -3,6 +3,7 @@ import { Schema, model, Document, Types } from "mongoose";
 export interface IProduct extends Document {
   text: string;
   bought: boolean;
+  updatedBy?: string;
 }
 
 export interface IFamilyCart extends Document {
@@ -24,6 +25,7 @@ export interface ICart extends Document {
 const productSchema = new Schema<IProduct>({
   text: { type: String, required: true },
   bought: { type: Boolean, default: false },
+  updatedBy: { type: String },
 });
 
 const familyCartSchema = new Schema<IFamilyCart>({

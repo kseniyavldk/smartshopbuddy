@@ -21,7 +21,7 @@ router.get("/:chatId", async (req, res) => {
   res.json({ products: familyCart.products, activeFamilyId });
 });
 
-router.post("/:chatId/add", async (req, res) => {
+router.post("/:chatId/add", checkRole("member"), async (req, res) => {
   const chatIdNum = parseChatId(req.params.chatId);
   if (chatIdNum === null)
     return res.status(400).json({ error: "Invalid chatId" });
@@ -44,7 +44,6 @@ router.post("/:chatId/add", async (req, res) => {
       products: [],
       archivedProducts: [],
     });
-
     cart.carts.push(familyCart);
   }
 
@@ -54,7 +53,11 @@ router.post("/:chatId/add", async (req, res) => {
   );
 
   if (!exists) {
-    const newProduct = familyCart.products.create({ text, bought: false });
+    const newProduct = familyCart.products.create({
+      text,
+      bought: false,
+      updatedBy: req.body.updatedBy,
+    });
     familyCart.products.push(newProduct);
     await cart.save();
   }
@@ -62,7 +65,7 @@ router.post("/:chatId/add", async (req, res) => {
   res.json({ products: familyCart.products });
 });
 
-router.put("/:chatId/toggle/:id", async (req, res) => {
+router.put("/:chatId/toggle/:id", checkRole("member"), async (req, res) => {
   const chatIdNum = parseChatId(req.params.chatId);
   if (chatIdNum === null)
     return res.status(400).json({ error: "Invalid chatId" });
@@ -79,6 +82,7 @@ router.put("/:chatId/toggle/:id", async (req, res) => {
   if (!product) return res.status(404).json({ error: "Product not found" });
 
   product.bought = !product.bought;
+  product.updatedBy = req.body.updatedBy;
   await cart.save();
 
   res.json({ products: familyCart.products });
@@ -100,6 +104,8 @@ router.delete("/:chatId/remove/:id", checkRole("admin"), async (req, res) => {
   const product = familyCart.products.id(req.params.id);
   if (!product) return res.status(404).json({ error: "Product not found" });
 
+  product.updatedBy = req.body.updatedBy;
+  await cart.save();
   product.deleteOne();
   await cart.save();
 
@@ -121,6 +127,9 @@ router.post("/:chatId/archive/:id", checkRole("admin"), async (req, res) => {
 
   const product = familyCart.products.id(req.params.id);
   if (!product) return res.status(404).json({ error: "Product not found" });
+
+  product.updatedBy = req.body.updatedBy;
+  await cart.save();
 
   familyCart.products.id(req.params.id)?.deleteOne();
   familyCart.archivedProducts.push(product);
@@ -164,7 +173,12 @@ router.post("/:chatId/restore/:id", checkRole("admin"), async (req, res) => {
   const product = familyCart.archivedProducts.id(req.params.id);
   if (!product) return res.status(404).json({ error: "Product not found" });
 
-  familyCart.products.push({ text: product.text, bought: false } as IProduct);
+  const restoredProduct = familyCart.products.create({
+    text: product.text,
+    bought: false,
+    updatedBy: req.body.updatedBy,
+  });
+  familyCart.products.push(restoredProduct);
   product.deleteOne();
   await cart.save();
 

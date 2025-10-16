@@ -22,6 +22,8 @@ export function checkRole(requiredRole: "admin" | "member") {
         return res.status(403).json({ error: "Access denied: admin only" });
       }
 
+      req.body.updatedBy = req.body.username || `chat_${chatIdNum}`;
+
       next();
     } catch (error) {
       console.error("[checkRole] error:", error);
