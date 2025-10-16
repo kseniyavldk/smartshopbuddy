@@ -4,7 +4,39 @@ import type { ShoppingState } from "../types/types";
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:4000/api";
 
 const mapProducts = (products: any[]) =>
-  products.map((p) => ({ id: String(p._id), text: p.text, bought: p.bought }));
+  products.map((p) => ({
+    id: String(p._id),
+    text: p.text,
+    bought: p.bought,
+    updatedBy: p.updatedBy,
+  }));
+
+async function apiFetch(
+  url: string,
+  options: RequestInit = {},
+  username?: string
+) {
+  const defaultHeaders = { "Content-Type": "application/json" };
+  const finalOptions: RequestInit = {
+    ...options,
+    headers: {
+      ...defaultHeaders,
+      ...(options.headers || {}),
+    },
+  };
+
+  if (["POST", "PUT", "DELETE"].includes(finalOptions.method || "")) {
+    const body = options.body ? JSON.parse(options.body as string) : {};
+    finalOptions.body = JSON.stringify({ ...body, username });
+  }
+
+  const res = await fetch(url, finalOptions);
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Request failed: ${res.status} ${errText}`);
+  }
+  return res.json();
+}
 
 export const useShoppingStore = create<ShoppingState>((set, get) => ({
   items: [],
@@ -14,6 +46,8 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
   isLoading: false,
   families: [],
   activeFamilyId: null,
+  username: null,
+  setUsername: (name) => set({ username: name }),
 
   setMode: (mode, chatId) => {
     set({ mode, chatId: chatId ?? null });
@@ -56,7 +90,7 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
   },
 
   addItem: async (text: string) => {
-    const { mode, chatId, items } = get();
+    const { mode, chatId, items, username } = get();
 
     if (mode === "local") {
       const newItem = { id: Date.now().toString(), text, bought: false };
@@ -70,13 +104,14 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
 
     try {
       set({ isLoading: true });
-      const res = await fetch(`${API_URL}/cart/${chatId}/add`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
-      });
-      if (!res.ok) throw new Error("Failed to add item");
-      const data = await res.json();
+      const data = await apiFetch(
+        `${API_URL}/cart/${chatId}/add`,
+        {
+          method: "POST",
+          body: JSON.stringify({ text }),
+        },
+        username || "anonymous"
+      );
       set({ items: mapProducts(data.products) });
     } catch (err) {
       console.error("[addItem] error:", err);
@@ -86,7 +121,7 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
   },
 
   toggleBought: async (id: string) => {
-    const { mode, chatId, items } = get();
+    const { mode, chatId, items, username } = get();
 
     if (mode === "local") {
       const updated = items.map((item) =>
@@ -101,11 +136,11 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
 
     try {
       set({ isLoading: true });
-      const res = await fetch(`${API_URL}/cart/${chatId}/toggle/${id}`, {
-        method: "PUT",
-      });
-      if (!res.ok) throw new Error("Failed to toggle item");
-      const data = await res.json();
+      const data = await apiFetch(
+        `${API_URL}/cart/${chatId}/toggle/${id}`,
+        { method: "PUT" },
+        username || "anonymous"
+      );
       set({ items: mapProducts(data.products) });
     } catch (err) {
       console.error("[toggleBought] error:", err);
@@ -140,16 +175,16 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
   },
 
   restoreFromArchive: async (id: string) => {
-    const { chatId } = get();
+    const { chatId, username } = get();
     if (!chatId) return;
 
     try {
       set({ isLoading: true });
-      const res = await fetch(`${API_URL}/cart/${chatId}/restore/${id}`, {
-        method: "POST",
-      });
-      if (!res.ok) throw new Error("Failed to restore item");
-      const data = await res.json();
+      const data = await apiFetch(
+        `${API_URL}/cart/${chatId}/restore/${id}`,
+        { method: "POST" },
+        username || "anonymous"
+      );
       set({
         items: mapProducts(data.products),
         archiveItems: mapProducts(data.archived),
@@ -162,7 +197,7 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
   },
 
   removeItem: async (id: string) => {
-    const { mode, chatId, items, archiveItems } = get();
+    const { mode, chatId, items, archiveItems, username } = get();
 
     if (mode === "local") {
       let updatedItems = items.filter((item) => item.id !== id);
@@ -187,11 +222,11 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
 
       const inItems = items.find((item) => item.id === id);
       if (inItems) {
-        const res = await fetch(`${API_URL}/cart/${chatId}/archive/${id}`, {
-          method: "POST",
-        });
-        if (!res.ok) throw new Error("Failed to archive item");
-        const data = await res.json();
+        const data = await apiFetch(
+          `${API_URL}/cart/${chatId}/archive/${id}`,
+          { method: "POST" },
+          username || "anonymous"
+        );
         set({
           items: mapProducts(data.products),
           archiveItems: mapProducts(data.archived),
@@ -201,11 +236,11 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
 
       const inArchive = archiveItems.find((item) => item.id === id);
       if (inArchive) {
-        const res = await fetch(`${API_URL}/cart/${chatId}/archive/${id}`, {
-          method: "DELETE",
-        });
-        if (!res.ok) throw new Error("Failed to delete item");
-        const data = await res.json();
+        const data = await apiFetch(
+          `${API_URL}/cart/${chatId}/archive/${id}`,
+          { method: "DELETE" },
+          username || "anonymous"
+        );
         set({
           items: mapProducts(data.products),
           archiveItems: mapProducts(data.archived),

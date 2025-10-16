@@ -14,6 +14,10 @@ export interface ShoppingState {
   families: { id: string; name?: string }[];
   activeFamilyId: string | null;
 
+  username: string | null;
+
+  setUsername: (name: string) => void;
+
   setMode: (mode: "local" | "family", chatId?: string) => void;
   fetchCart: () => void | Promise<void>;
   addItem: (text: string) => void | Promise<void>;
