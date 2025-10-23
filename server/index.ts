@@ -1,10 +1,8 @@
 import express from "express";
 import cors from "cors";
-
-import { PORT } from "./config";
-import { bot } from "./bot";
 import cartRoutes from "./routes/cart";
 import familiesRoutes from "./routes/families";
+import { bot } from "./bot";
 
 const app = express();
 app.use(express.json());
@@ -18,9 +16,5 @@ app.use(
 
 app.use("/api/cart", cartRoutes);
 app.use("/api/families", familiesRoutes);
-
-app.listen(PORT, () => {
-  console.log(`🚀 API running on http://localhost:${PORT}`);
-});
 
 export { app, bot };

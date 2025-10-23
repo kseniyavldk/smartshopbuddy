@@ -1,5 +1,6 @@
 import TelegramBot, { InlineKeyboardButton } from "node-telegram-bot-api";
-import { getUserFamilyCart, escapeMarkdownV2, sendFamilyCart } from "./helpers";
+import { Cart } from "../models/Cart";
+import { escapeMarkdownV2, sendFamilyCart } from "./helpers";
 
 export const registerMainMenu = (bot: TelegramBot) => {
   const mainMenuKeyboard: InlineKeyboardButton[][] = [
@@ -24,22 +25,36 @@ export const registerMainMenu = (bot: TelegramBot) => {
 
   bot.on("callback_query", async (query) => {
     const chatId = query.message?.chat.id;
-    if (!chatId) return;
+    if (!chatId || !query.data) return;
+
+    const userCart = await Cart.findOne({ chatId });
+    if (!userCart || !userCart.activeFamilyId) {
+      await bot.answerCallbackQuery(query.id, {
+        text: "❗ Сначала создайте или присоединитесь к семье.",
+      });
+      return;
+    }
+
+    const familyId = userCart.activeFamilyId;
+    const familyCart = userCart.carts.find((c) => c.familyId === familyId);
 
     switch (query.data) {
       case "menu_cart": {
-        const carts = await getUserFamilyCart(chatId);
-        if (!carts) {
+        if (!familyCart) {
           await bot.answerCallbackQuery(query.id, {
-            text: "Сначала создайте или присоединитесь к семье",
+            text: "❌ Семейная корзина не найдена.",
           });
           return;
         }
-        const { canonicalCart } = carts;
+
         const cartText =
-          canonicalCart.products
-            .map((p) => `${p.bought ? "✅" : "❌"} ${escapeMarkdownV2(p.text)}`)
-            .join("\n") || "пусто";
+          familyCart.products.length > 0
+            ? familyCart.products
+                .map(
+                  (p) => `${p.bought ? "✅" : "❌"} ${escapeMarkdownV2(p.text)}`
+                )
+                .join("\n")
+            : "пусто";
 
         await bot.sendMessage(chatId, `🛒 Ваша корзина:\n${cartText}`, {
           parse_mode: "MarkdownV2",
@@ -51,26 +66,23 @@ export const registerMainMenu = (bot: TelegramBot) => {
       case "menu_add":
         await bot.sendMessage(
           chatId,
-          "Напишите товар, который хотите добавить:"
+          "✏️ Напишите товар, который хотите добавить:"
         );
         await bot.answerCallbackQuery(query.id);
         break;
 
       case "menu_clear": {
-        const carts = await getUserFamilyCart(chatId);
-        if (!carts) return;
-        const { userCart, canonicalCart } = carts;
-
-        if (!userCart.familyId) {
+        if (!familyCart) {
           await bot.answerCallbackQuery(query.id, {
-            text: "❌ Семья не найдена",
+            text: "❌ Семейная корзина не найдена.",
           });
           return;
         }
 
-        canonicalCart.products.splice(0, canonicalCart.products.length);
-        await canonicalCart.save();
-        await sendFamilyCart(bot, userCart.familyId, "🗑 Корзина очищена.");
+        familyCart.products.splice(0, familyCart.products.length);
+        await userCart.save();
+
+        await sendFamilyCart(bot, familyId, "🗑 Корзина очищена.");
         await bot.answerCallbackQuery(query.id);
         break;
       }
@@ -78,7 +90,7 @@ export const registerMainMenu = (bot: TelegramBot) => {
       case "menu_remove":
         await bot.sendMessage(
           chatId,
-          "Напишите товар, который хотите удалить:"
+          "🗑 Напишите товар, который хотите удалить:"
         );
         await bot.answerCallbackQuery(query.id);
         break;

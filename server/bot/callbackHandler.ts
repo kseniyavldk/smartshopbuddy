@@ -6,33 +6,39 @@ export const registerCallbackHandler = (bot: TelegramBot) => {
   bot.on("callback_query", async (query: CallbackQuery) => {
     try {
       if (!query.data || !query.from) return;
+
       const chatId = query.from.id;
       const userCart = await Cart.findOne({ chatId });
-      if (!userCart || !userCart.familyId) return;
 
-      const canonicalCart = await Cart.findOne({
-        familyId: userCart.familyId,
-      }).sort({ createdAt: 1 });
-      if (!canonicalCart) return;
+      if (!userCart || !userCart.activeFamilyId) return;
+
+      const familyId = userCart.activeFamilyId;
+
+      const familyCart = userCart.carts.find(
+        (c) => c.familyId === familyId
+      );
+      if (!familyCart) return;
 
       const index = parseInt(query.data.replace("bought_", ""));
-      if (canonicalCart.products[index]) {
-        canonicalCart.products[index].bought = true;
-        await canonicalCart.save();
+      if (isNaN(index) || !familyCart.products[index]) return;
 
-        const cartText = canonicalCart.products
-          .map((p) => `${p.bought ? "✅" : "❌"} ${p.text}`)
-          .join("\n");
-        await sendFamilyCart(
-          bot,
-          userCart.familyId,
-          `🛒 "${escapeMarkdownV2(
-            canonicalCart.products[index].text
-          )}" отмечен как купленный.\n\nТекущий список:\n${escapeMarkdownV2(
-            cartText
-          )}`
-        );
-      }
+      familyCart.products[index].bought = true;
+
+      await userCart.save();
+
+      const cartText = familyCart.products
+        .map((p) => `${p.bought ? "✅" : "❌"} ${p.text}`)
+        .join("\n");
+
+      await sendFamilyCart(
+        bot,
+        familyId,
+        `🛒 "${escapeMarkdownV2(
+          familyCart.products[index].text
+        )}" отмечен как купленный.\n\nТекущий список:\n${escapeMarkdownV2(
+          cartText
+        )}`
+      );
 
       await bot.answerCallbackQuery(query.id);
     } catch (error) {

@@ -11,7 +11,6 @@ import toast, { Toaster } from "react-hot-toast";
 export default function App() {
   const { fetchCart, setMode, mode, chatId } = useShoppingStore();
   const [showPopup, setShowPopup] = useState(false);
-  const [inputId, setInputId] = useState("");
   const [error, setError] = useState("");
   const [isOnline, setIsOnline] = useState(true);
   const listRef = useRef<HTMLDivElement>(null);

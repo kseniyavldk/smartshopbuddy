@@ -1,47 +1,39 @@
-import { Cart } from "../models/Cart";
+import { Cart, ICart, IFamilyCart } from "../models/Cart";
 import TelegramBot from "node-telegram-bot-api";
 
-export const escapeMarkdownV2 = (text: string): string => {
-  if (!text) return "";
-  return text
-    .replace(/\\/g, "\\\\")
-    .replace(/([_*[\]()~`>#+\-=|{}.!])/g, "\\$1");
-};
+export const escapeMarkdownV2 = (text: string) =>
+  text?.replace(/([_*[\]()~`>#+\-=|{}.!])/g, "\\$1") || "";
 
 export const sendFamilyCart = async (
   bot: TelegramBot,
   familyId: string,
   text: string
-): Promise<void> => {
+) => {
   if (!familyId) return;
 
-  const familyCarts = await Cart.find({ familyId });
-  if (!familyCarts.length) return;
-
+  const members = await Cart.find({ familyIds: familyId });
   await Promise.allSettled(
-    familyCarts.map((member) =>
-      bot.sendMessage(member.chatId, escapeMarkdownV2(text), {
+    members.map((m) =>
+      bot.sendMessage(m.chatId, escapeMarkdownV2(text), {
         parse_mode: "MarkdownV2",
       })
     )
   );
 };
 
-export const getCanonicalFamilyCart = async (familyId: string) => {
-  if (!familyId) return null;
-  return Cart.findOne({ familyId }).sort({ createdAt: 1 }).exec();
-};
+export const generateFamilyId = (chatId: number | string) =>
+  `${chatId}-${Date.now()}`;
 
-export const generateFamilyId = (chatId: number | string): string => {
-  return `${chatId}-${Date.now()}`;
-};
-
-export const getUserFamilyCart = async (chatId: number) => {
+export const getUserFamilyCart = async (
+  chatId: number
+): Promise<{ userCart: ICart; familyCart: IFamilyCart } | null> => {
   const userCart = await Cart.findOne({ chatId }).exec();
-  if (!userCart?.familyId) return null;
+  if (!userCart?.activeFamilyId) return null;
 
-  const canonicalCart = await getCanonicalFamilyCart(userCart.familyId);
-  if (!canonicalCart) return null;
+  const familyCart = userCart.carts.find(
+    (c) => c.familyId === userCart.activeFamilyId
+  );
+  if (!familyCart) return null;
 
-  return { userCart, canonicalCart };
+  return { userCart, familyCart };
 };

@@ -6,7 +6,7 @@ export interface Item {
 
 export interface ShoppingState {
   items: Item[];
-  mode: "local" | "family";
+  mode: "local" | "server" | "family";
   chatId: string | null;
   archiveItems: Item[];
   isLoading: boolean;
@@ -18,7 +18,7 @@ export interface ShoppingState {
 
   setUsername: (name: string) => void;
 
-  setMode: (mode: "local" | "family", chatId?: string) => void;
+  setMode: (mode: "local" | "server" | "family", chatId?: string) => void;
   fetchCart: () => void | Promise<void>;
   addItem: (text: string) => void | Promise<void>;
   toggleBought: (id: string) => void | Promise<void>;

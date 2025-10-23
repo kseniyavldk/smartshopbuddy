@@ -10,19 +10,21 @@ export const registerMessageHandler = (bot: TelegramBot) => {
       if (!text || text.startsWith("/")) return;
 
       const userCart = await Cart.findOne({ chatId });
-      if (!userCart || !userCart.familyId)
+      if (!userCart || !userCart.activeFamilyId)
         return bot.sendMessage(
           chatId,
           "❗ Сначала создайте или присоединитесь к семье."
         );
 
-      const canonicalCart = await Cart.findOne({
-        familyId: userCart.familyId,
-      }).sort({ createdAt: 1 });
-      if (!canonicalCart)
+      const familyId = userCart.activeFamilyId;
+
+      const familyCart = userCart.carts.find(
+        (c) => c.familyId === familyId
+      );
+      if (!familyCart)
         return bot.sendMessage(chatId, "❌ Не удалось найти семейную корзину.");
 
-      const exists = canonicalCart.products.some(
+      const exists = familyCart.products.some(
         (p) => p.text.toLowerCase() === text.toLowerCase()
       );
       if (exists) {
@@ -33,16 +35,16 @@ export const registerMessageHandler = (bot: TelegramBot) => {
         );
       }
 
-      canonicalCart.products.push({ text, bought: false });
-      await canonicalCart.save();
+      familyCart.products.push({ text, bought: false });
+      await userCart.save();
 
-      const cartText = canonicalCart.products
+      const cartText = familyCart.products
         .map((p) => `${p.bought ? "✅" : "❌"} ${p.text}`)
         .join("\n");
 
       await sendFamilyCart(
         bot,
-        userCart.familyId,
+        familyId,
         `✅ "${escapeMarkdownV2(
           text
         )}" добавлен в корзину.\n\nТекущий список:\n${escapeMarkdownV2(

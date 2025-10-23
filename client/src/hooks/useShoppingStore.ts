@@ -1,16 +1,60 @@
 import { create } from "zustand";
-import type { ShoppingState } from "../types/types";
+
+export interface Product {
+  id: string;
+  _id?: string;
+  text: string;
+  bought: boolean;
+  updatedBy?: string;
+}
+
+export interface Family {
+  id: string;
+  name?: string;
+}
+
+export interface ShoppingState {
+  items: Product[];
+  archiveItems: Product[];
+  mode: "local" | "server" | "family";
+  chatId: string | null;
+  username: string | null;
+  activeFamilyId: string | null;
+  families: Family[];
+  isLoading: boolean;
+
+  setUsername: (name: string) => void;
+  setMode: (mode: "local" | "server" | "family", chatId?: string) => void;
+
+  fetchCart: () => Promise<void>;
+  addItem: (text: string) => Promise<void>;
+  toggleBought: (id: string) => Promise<void>;
+  removeItem: (id: string) => Promise<void>;
+  fetchArchive: () => Promise<void>;
+  restoreFromArchive: (id: string) => Promise<void>;
+
+  fetchFamilies: (chatId: string) => Promise<void>;
+  addFamily: (chatId: string, familyId: string) => Promise<void>;
+  switchFamily: (chatId: string, familyId: string) => Promise<void>;
+}
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:4000/api";
 
-const mapProducts = (products: any[]) =>
+const mapProducts = (products: any[]): Product[] =>
   products.map((p) => ({
-    id: String(p._id),
+    id: String(p._id || p.id || Date.now()),
     _id: p._id,
     text: p.text,
     bought: p.bought,
     updatedBy: p.updatedBy,
   }));
+
+const mergeArchive = (current: Product[], incoming: Product[]) => {
+  const newItems = incoming.filter(
+    (item) => !current.some((i) => i.id === item.id)
+  );
+  return [...current, ...newItems];
+};
 
 async function apiFetch(
   url: string,
@@ -39,33 +83,23 @@ async function apiFetch(
   return res.json();
 }
 
-function getActiveFamilyCart(data: any) {
-  const cartFromCarts = data.carts?.find(
-    (c: any) => c.familyId === data.activeFamilyId
-  );
+const getActiveFamilyCart = (data: any) => {
+  const cart = data.carts?.find((c: any) => c.familyId === data.activeFamilyId);
   return {
-    products: cartFromCarts?.products || data.products || [],
-    archivedProducts:
-      cartFromCarts?.archivedProducts || data.archivedProducts || [],
+    products: cart?.products || data.products || [],
+    archivedProducts: cart?.archivedProducts || data.archivedProducts || [],
   };
-}
-
-function mergeArchive(current: any[], incoming: any[]) {
-  const newItems = incoming.filter(
-    (item) => !current.some((i) => i.id === item.id)
-  );
-  return [...current, ...newItems];
-}
+};
 
 export const useShoppingStore = create<ShoppingState>((set, get) => ({
   items: [],
   archiveItems: [],
   mode: "local",
   chatId: null,
-  isLoading: false,
-  families: [],
-  activeFamilyId: null,
   username: null,
+  activeFamilyId: null,
+  families: [],
+  isLoading: false,
 
   setUsername: (name) => set({ username: name }),
 
@@ -73,8 +107,12 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
     set({ mode, chatId: chatId ?? null });
 
     if (mode === "local") {
-      const saved = localStorage.getItem("shopping-items");
-      set({ items: saved ? JSON.parse(saved) : [] });
+      const savedItems = localStorage.getItem("shopping-items");
+      const savedArchive = localStorage.getItem("archive-items");
+      set({
+        items: savedItems ? JSON.parse(savedItems) : [],
+        archiveItems: savedArchive ? JSON.parse(savedArchive) : [],
+      });
     } else if (chatId) {
       get().fetchCart();
       get().fetchFamilies(chatId);
@@ -84,8 +122,8 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
   fetchCart: async () => {
     const { mode, chatId } = get();
     if (mode === "local") {
-      const saved = localStorage.getItem("shopping-items");
-      set({ items: saved ? JSON.parse(saved) : [] });
+      const savedItems = localStorage.getItem("shopping-items");
+      set({ items: savedItems ? JSON.parse(savedItems) : [] });
       return;
     }
     if (!chatId) return;
@@ -100,12 +138,13 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
       if (!res.ok) throw new Error("Failed to load cart");
 
       const data = await res.json();
-      const activeFamilyCart = getActiveFamilyCart(data);
+      const activeCart = getActiveFamilyCart(data);
+
       set((state) => ({
-        items: mapProducts(activeFamilyCart.products),
+        items: mapProducts(activeCart.products),
         archiveItems: mergeArchive(
           state.archiveItems,
-          mapProducts(activeFamilyCart.archivedProducts)
+          mapProducts(activeCart.archivedProducts)
         ),
       }));
     } catch (err) {
@@ -116,17 +155,20 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
     }
   },
 
-  addItem: async (text: string) => {
+  addItem: async (text) => {
     const { mode, chatId, items, username } = get();
 
     if (mode === "local") {
-      const newItem = { id: Date.now().toString(), text, bought: false };
+      const newItem: Product = {
+        id: Date.now().toString(),
+        text,
+        bought: false,
+      };
       const newItems = [...items, newItem];
       localStorage.setItem("shopping-items", JSON.stringify(newItems));
       set({ items: newItems });
       return;
     }
-
     if (!chatId) return;
 
     try {
@@ -136,13 +178,13 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
         { method: "POST", body: JSON.stringify({ text }) },
         username || "anonymous"
       );
-      const activeFamilyCart = getActiveFamilyCart(data);
+      const activeCart = getActiveFamilyCart(data);
 
       set((state) => ({
-        items: mapProducts(activeFamilyCart.products),
+        items: mapProducts(activeCart.products),
         archiveItems: mergeArchive(
           state.archiveItems,
-          mapProducts(activeFamilyCart.archivedProducts)
+          mapProducts(activeCart.archivedProducts)
         ),
       }));
     } catch (err) {
@@ -152,7 +194,7 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
     }
   },
 
-  toggleBought: async (id: string) => {
+  toggleBought: async (id) => {
     const { mode, chatId, username } = get();
 
     if (mode === "local") {
@@ -163,7 +205,6 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
       set({ items: updated });
       return;
     }
-
     if (!chatId) return;
 
     try {
@@ -173,12 +214,13 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
         { method: "PUT" },
         username || "anonymous"
       );
-      const activeFamilyCart = getActiveFamilyCart(data);
+      const activeCart = getActiveFamilyCart(data);
+
       set((state) => ({
-        items: mapProducts(activeFamilyCart.products),
+        items: mapProducts(activeCart.products),
         archiveItems: mergeArchive(
           state.archiveItems,
-          mapProducts(activeFamilyCart.archivedProducts)
+          mapProducts(activeCart.archivedProducts)
         ),
       }));
     } catch (err) {
@@ -188,64 +230,7 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
     }
   },
 
-  fetchArchive: async () => {
-    const { chatId, mode } = get();
-    if (mode === "local" || !chatId) return;
-
-    try {
-      set({ isLoading: true });
-      const res = await fetch(`${API_URL}/cart/${chatId}/archive`);
-      if (res.status === 404) return;
-      if (!res.ok) throw new Error("Failed to load archive");
-
-      const data = await res.json();
-      const activeFamilyCart = data.carts?.find(
-        (c: any) => c.familyId === data.activeFamilyId
-      );
-      const archivedProducts =
-        activeFamilyCart?.archived || data.archived || [];
-
-      set((state) => ({
-        archiveItems: mergeArchive(
-          state.archiveItems,
-          mapProducts(archivedProducts)
-        ),
-      }));
-    } catch (err) {
-      console.error("[fetchArchive] error:", err);
-    } finally {
-      set({ isLoading: false });
-    }
-  },
-
-  restoreFromArchive: async (id: string) => {
-    const { chatId, items, archiveItems, username } = get();
-    if (!chatId) return;
-
-    const item = archiveItems.find((i) => i.id === id);
-    if (!item) return;
-
-    set({
-      items: [...items, item],
-      archiveItems: archiveItems.filter((i) => i.id !== id),
-    });
-
-    try {
-      await apiFetch(
-        `${API_URL}/cart/${chatId}/restore/${id}`,
-        { method: "POST" },
-        username || "anonymous"
-      );
-    } catch (err) {
-      console.error("[restoreFromArchive] error:", err);
-      set({
-        items,
-        archiveItems,
-      });
-    }
-  },
-
-  removeItem: async (id: string) => {
+  removeItem: async (id) => {
     const { mode, chatId, items, archiveItems, username } = get();
 
     if (mode === "local") {
@@ -279,7 +264,6 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
           items: items.filter((i) => i.id !== id),
           archiveItems: [...archiveItems, itemInList],
         });
-
         await apiFetch(
           `${API_URL}/cart/${chatId}/archive/${id}`,
           { method: "POST" },
@@ -287,7 +271,6 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
         );
       } else if (itemInArchive) {
         set({ archiveItems: archiveItems.filter((i) => i.id !== id) });
-
         await apiFetch(
           `${API_URL}/cart/${chatId}/archive/${id}`,
           { method: "DELETE" },
@@ -302,8 +285,63 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
     }
   },
 
-  fetchFamilies: async (chatId: string | number) => {
+  fetchArchive: async () => {
+    const { chatId, mode } = get();
+    if (mode === "local" || !chatId) return;
+
+    try {
+      set({ isLoading: true });
+      const res = await fetch(`${API_URL}/cart/${chatId}/archive`);
+      if (res.status === 404) return;
+      if (!res.ok) throw new Error("Failed to load archive");
+
+      const data = await res.json();
+      const activeCart = data.carts?.find(
+        (c: any) => c.familyId === data.activeFamilyId
+      );
+      const archivedProducts =
+        activeCart?.archivedProducts || data.archivedProducts || [];
+
+      set((state) => ({
+        archiveItems: mergeArchive(
+          state.archiveItems,
+          mapProducts(archivedProducts)
+        ),
+      }));
+    } catch (err) {
+      console.error("[fetchArchive] error:", err);
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  restoreFromArchive: async (id) => {
+    const { chatId, items, archiveItems, username } = get();
     if (!chatId) return;
+
+    const item = archiveItems.find((i) => i.id === id);
+    if (!item) return;
+
+    set({
+      items: [...items, item],
+      archiveItems: archiveItems.filter((i) => i.id !== id),
+    });
+
+    try {
+      await apiFetch(
+        `${API_URL}/cart/${chatId}/restore/${id}`,
+        { method: "POST" },
+        username || "anonymous"
+      );
+    } catch (err) {
+      console.error("[restoreFromArchive] error:", err);
+      set({ items, archiveItems });
+    }
+  },
+
+  fetchFamilies: async (chatId) => {
+    if (!chatId) return;
+
     try {
       set({ isLoading: true });
       const res = await fetch(`${API_URL}/families/${chatId}`);
@@ -315,11 +353,10 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
 
       const data = await res.json();
       set({
-        families: (data.families || []).map(
-          (f: string | { id: string; name?: string }) =>
-            typeof f === "string"
-              ? { id: String(f) }
-              : { id: String(f.id), name: f.name }
+        families: (data.families || []).map((f: any) =>
+          typeof f === "string"
+            ? { id: String(f) }
+            : { id: String(f.id), name: f.name }
         ),
         activeFamilyId: data.activeFamilyId
           ? String(data.activeFamilyId)
@@ -333,7 +370,7 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
     }
   },
 
-  addFamily: async (chatId: string, familyId: string) => {
+  addFamily: async (chatId, familyId) => {
     try {
       const res = await fetch(`${API_URL}/families/${chatId}/add`, {
         method: "POST",
@@ -342,16 +379,13 @@ export const useShoppingStore = create<ShoppingState>((set, get) => ({
       });
       if (!res.ok) throw new Error("Failed to add family");
       const data = await res.json();
-      set({
-        families: data.families,
-        activeFamilyId: data.activeFamilyId,
-      });
+      set({ families: data.families, activeFamilyId: data.activeFamilyId });
     } catch (err) {
       console.error("[addFamily] error:", err);
     }
   },
 
-  switchFamily: async (chatId: string, familyId: string) => {
+  switchFamily: async (chatId, familyId) => {
     try {
       const idStr = String(familyId);
       const res = await fetch(`${API_URL}/families/${chatId}/switch/${idStr}`, {

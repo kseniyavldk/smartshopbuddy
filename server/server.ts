@@ -2,37 +2,22 @@ import mongoose from "mongoose";
 import { app } from "./index";
 import { PORT, MONGO_URI } from "./config";
 
-let server: import("http").Server | undefined;
-
-const start = async () => {
+async function start() {
   try {
-    await mongoose.connect(MONGO_URI);
-    console.log("✅ MongoDB подключена");
+    console.log("🌐 Connecting to MongoDB...");
+    await mongoose.connect(MONGO_URI, {
+      dbName: "smartshopbuddy",
+    });
+    console.log("✅ MongoDB connected");
 
-    server = app.listen(PORT, () =>
-      console.log(`🚀 Сервер запущен на http://localhost:${PORT}`)
-    );
+    mongoose.connection.on("disconnected", () => console.log("⚠️ MongoDB disconnected"));
+    mongoose.connection.on("error", (err) => console.error("❌ MongoDB connection error:", err));
+
+    app.listen(PORT, () => console.log(`🚀 API running on http://localhost:${PORT}`));
   } catch (err) {
-    console.error("❌ Ошибка подключения к MongoDB", err);
-    process.exit(1);
-  }
-};
-
-start();
-
-async function gracefulShutdown(signal: string) {
-  try {
-    console.log(`${signal} received. Shutting down...`);
-    await mongoose.connection.close();
-    if (server)
-      await new Promise((resolve) => server!.close(() => resolve(null)));
-    console.log("Shutdown complete.");
-    process.exit(0);
-  } catch (e) {
-    console.error("Error during shutdown", e);
+    console.error("❌ MongoDB connection failed:", err);
     process.exit(1);
   }
 }
 
-process.on("SIGINT", () => gracefulShutdown("SIGINT"));
-process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+start();
