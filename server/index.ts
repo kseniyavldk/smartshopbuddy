@@ -1,20 +1,32 @@
 import express from "express";
+import mongoose from "mongoose";
+import dotenv from "dotenv";
 import cors from "cors";
-import cartRoutes from "./routes/cart";
-import familiesRoutes from "./routes/families";
-import { bot } from "./bot";
+import cartRouter from "./routes/cart";
 
-const app = express();
+dotenv.config();
+
+const PORT = Number(process.env.PORT || 4000);
+const MONGO = process.env.MONGO_URI || "mongodb://localhost:27017/smartshopbuddy";
+
+export const app = express();
+app.use(cors());
 app.use(express.json());
 
-app.use(
-  cors({
-    origin: ["http://localhost:5173", "https://smartshopbuddy.onrender.com"],
-    methods: ["GET", "POST", "PUT", "DELETE"],
+app.use((req, res, next) => {
+  console.log(new Date().toISOString(), req.method, req.originalUrl);
+  next();
+});
+
+app.use("/api/cart", cartRouter);
+
+mongoose
+  .connect(MONGO)
+  .then(() => {
+    console.log("Mongo connected");
+    app.listen(PORT, () => console.log(`Server listening on ${PORT}`));
   })
-);
-
-app.use("/api/cart", cartRoutes);
-app.use("/api/families", familiesRoutes);
-
-export { app, bot };
+  .catch((err) => {
+    console.error("Mongo connection error:", err);
+    process.exit(1);
+  });

@@ -1,172 +1,156 @@
-import { Router } from "express";
-import { Cart, ICart, IFamilyCart, IProduct } from "../models/Cart";
-import { parseChatId } from "../utils/parseChatId";
-import { checkRole } from "../middleware/checkRole";
+import express from "express";
+import Cart from "../models/Cart";
 
-const router = Router();
+const router = express.Router();
 
 router.get("/:chatId", async (req, res) => {
-  const chatIdNum = parseChatId(req.params.chatId);
-  if (chatIdNum === null) return res.status(400).json({ error: "Invalid chatId" });
+  try {
+    const { chatId } = req.params;
+    let cart = await Cart.findOne({ chatId });
 
-  const cart = await Cart.findOne({ chatId: chatIdNum });
-  if (!cart) return res.status(404).json({ error: "Cart not found" });
+    if (!cart) {
+      cart = await Cart.create({ chatId, products: [], archivedProducts: [] });
+    }
 
-  const activeFamilyId = cart.activeFamilyId;
-  const familyCart = cart.carts.find(c => c.familyId === activeFamilyId);
-  if (!familyCart) return res.status(404).json({ error: "Family cart not found" });
-
-  res.json({ products: familyCart.products, activeFamilyId });
+    res.json(cart);
+  } catch (err) {
+    const error = err as Error;
+    res.status(500).json({ error: error.message });
+  }
 });
 
-router.post("/:chatId/add", checkRole("member"), async (req, res) => {
-  const chatIdNum = parseChatId(req.params.chatId);
-  if (chatIdNum === null) return res.status(400).json({ error: "Invalid chatId" });
+router.post("/:chatId/add", async (req, res) => {
+  try {
+    const { chatId } = req.params;
+    const { text, username } = req.body;
 
-  const text = String(req.body.text || "").trim();
-  if (!text) return res.status(400).json({ error: "Empty text" });
+    const cart = await Cart.findOneAndUpdate(
+      { chatId },
+      {
+        $push: {
+          products: {
+            text,
+            bought: false,
+            updatedBy: username || "anonymous",
+            updatedAt: new Date(),
+          },
+        },
+      },
+      { new: true, upsert: true }
+    );
 
-  const cart = await Cart.findOne({ chatId: chatIdNum });
-  if (!cart) return res.status(404).json({ error: "Cart not found" });
-
-  const activeFamilyId = cart.activeFamilyId;
-  if (!activeFamilyId) return res.status(400).json({ error: "No active family" });
-
-  let familyCart = cart.carts.find(c => c.familyId === activeFamilyId) as IFamilyCart;
-  if (!familyCart) {
-    familyCart = cart.carts.create({
-      familyId: activeFamilyId,
-      products: [],
-      archivedProducts: [],
-    });
-    cart.carts.push(familyCart);
+    res.json(cart);
+  } catch (err) {
+    const error = err as Error;
+    res.status(500).json({ error: error.message });
   }
+});
 
-  const normalized = text.toLowerCase();
-  const exists = familyCart.products.some(p => p.text.toLowerCase() === normalized);
+router.put("/:chatId/toggle/:id", async (req, res) => {
+  try {
+    const { chatId, id } = req.params;
+    const cart = await Cart.findOne({ chatId });
+    if (!cart) return res.status(404).send("Cart not found");
 
-  if (!exists) {
-    const newProduct = familyCart.products.create({
-      text,
-      bought: false,
-      updatedBy: req.body.updatedBy || "",
-    });
-    familyCart.products.push(newProduct);
+    const product = cart.products.find((p) => p._id?.toString() === id);
+    if (product) {
+      product.bought = !product.bought;
+      product.updatedAt = new Date();
+    }
+
     await cart.save();
+    res.json(cart);
+  } catch (err) {
+    const error = err as Error;
+    res.status(500).json({ error: error.message });
   }
-
-  res.json({ products: familyCart.products });
 });
 
-router.put("/:chatId/toggle/:id", checkRole("member"), async (req, res) => {
-  const chatIdNum = parseChatId(req.params.chatId);
-  if (chatIdNum === null) return res.status(400).json({ error: "Invalid chatId" });
+router.post("/:chatId/archive/:id", async (req, res) => {
+  try {
+    const { chatId, id } = req.params;
+    const cart = await Cart.findOne({ chatId });
+    if (!cart) return res.status(404).send("Cart not found");
 
-  const cart = await Cart.findOne({ chatId: chatIdNum });
-  if (!cart) return res.status(404).json({ error: "Cart not found" });
+    const productIndex = cart.products.findIndex(
+      (p) => p._id?.toString() === id
+    );
+    if (productIndex === -1) return res.status(404).send("Product not found");
 
-  const activeFamilyId = cart.activeFamilyId;
-  const familyCart = cart.carts.find(c => c.familyId === activeFamilyId);
-  if (!familyCart) return res.status(404).json({ error: "Family cart not found" });
+   const product = cart.products[productIndex];
 
-  const product = familyCart.products.id(req.params.id);
-  if (!product) return res.status(404).json({ error: "Product not found" });
+    cart.archivedProducts.push({
+      _id: product._id,
+      text: product.text,
+      bought: product.bought,
+      updatedBy: product.updatedBy,
+      updatedAt: product.updatedAt,
+      archivedAt: new Date(),
+    });
 
-  product.bought = !product.bought;
-  product.updatedBy = req.body.updatedBy || "";
-  await cart.save();
+    cart.products.splice(productIndex, 1);
+    await cart.save();
 
-  res.json({ products: familyCart.products });
+
+    res.json(cart);
+  } catch (err) {
+    const error = err as Error;
+    res.status(500).json({ error: error.message });
+  }
 });
 
-router.delete("/:chatId/remove/:id", checkRole("admin"), async (req, res) => {
-  const chatIdNum = parseChatId(req.params.chatId);
-  if (chatIdNum === null) return res.status(400).json({ error: "Invalid chatId" });
+router.delete("/:chatId/archive/:id", async (req, res) => {
+  try {
+    const { chatId, id } = req.params;
+    const cart = await Cart.findOne({ chatId });
+    if (!cart) return res.status(404).send("Cart not found");
 
-  const cart = await Cart.findOne({ chatId: chatIdNum });
-  if (!cart) return res.status(404).json({ error: "Cart not found" });
+    cart.archivedProducts = cart.archivedProducts.filter(
+      (p) => p._id?.toString() !== id
+    );
 
-  const activeFamilyId = cart.activeFamilyId;
-  const familyCart = cart.carts.find(c => c.familyId === activeFamilyId);
-  if (!familyCart) return res.status(404).json({ error: "Family cart not found" });
-
-  const product = familyCart.products.id(req.params.id);
-  if (!product) return res.status(404).json({ error: "Product not found" });
-
-  product.updatedBy = req.body.updatedBy || "";
-  product.deleteOne();
-  await cart.save();
-
-  res.json({ products: familyCart.products });
+    await cart.save();
+    res.json(cart);
+  } catch (err) {
+    const error = err as Error;
+    res.status(500).json({ error: error.message });
+  }
 });
 
-router.post("/:chatId/archive/:id", checkRole("admin"), async (req, res) => {
-  const chatIdNum = parseChatId(req.params.chatId);
-  if (chatIdNum === null) return res.status(400).json({ error: "Invalid chatId" });
+router.post("/:chatId/restore/:id", async (req, res) => {
+  try {
+    const { chatId, id } = req.params;
+    const cart = await Cart.findOne({ chatId });
+    if (!cart) return res.status(404).send("Cart not found");
 
-  const cart = await Cart.findOne({ chatId: chatIdNum });
-  if (!cart) return res.status(404).json({ error: "Cart not found" });
+    const archivedIndex = cart.archivedProducts.findIndex(
+      (p) => p._id?.toString() === id
+    );
+    if (archivedIndex === -1) return res.status(404).send("Product not found");
 
-  const activeFamilyId = cart.activeFamilyId;
-  const familyCart = cart.carts.find(c => c.familyId === activeFamilyId);
-  if (!familyCart) return res.status(404).json({ error: "Family cart not found" });
+    const product = cart.archivedProducts[archivedIndex];
+    cart.products.push(product);
+    cart.archivedProducts.splice(archivedIndex, 1);
 
-  const product = familyCart.products.id(req.params.id);
-  if (!product) return res.status(404).json({ error: "Product not found" });
-
-  product.updatedBy = req.body.updatedBy || "";
-  product.deleteOne();
-  familyCart.archivedProducts.push(product);
-  await cart.save();
-
-  res.json({
-    products: familyCart.products,
-    archived: familyCart.archivedProducts,
-  });
+    await cart.save();
+    res.json(cart);
+  } catch (err) {
+    const error = err as Error;
+    res.status(500).json({ error: error.message });
+  }
 });
 
 router.get("/:chatId/archive", async (req, res) => {
-  const chatIdNum = parseChatId(req.params.chatId);
-  if (chatIdNum === null) return res.status(400).json({ error: "Invalid chatId" });
+  try {
+    const { chatId } = req.params;
+    const cart = await Cart.findOne({ chatId });
+    if (!cart) return res.status(404).send("Cart not found");
 
-  const cart = await Cart.findOne({ chatId: chatIdNum });
-  if (!cart) return res.status(404).json({ error: "Cart not found" });
-
-  const activeFamilyId = cart.activeFamilyId;
-  const familyCart = cart.carts.find(c => c.familyId === activeFamilyId);
-  if (!familyCart) return res.status(404).json({ error: "Family cart not found" });
-
-  res.json({ archived: familyCart.archivedProducts });
-});
-
-router.post("/:chatId/restore/:id", checkRole("admin"), async (req, res) => {
-  const chatIdNum = parseChatId(req.params.chatId);
-  if (chatIdNum === null) return res.status(400).json({ error: "Invalid chatId" });
-
-  const cart = await Cart.findOne({ chatId: chatIdNum });
-  if (!cart) return res.status(404).json({ error: "Cart not found" });
-
-  const activeFamilyId = cart.activeFamilyId;
-  const familyCart = cart.carts.find(c => c.familyId === activeFamilyId);
-  if (!familyCart) return res.status(404).json({ error: "Family cart not found" });
-
-  const product = familyCart.archivedProducts.id(req.params.id);
-  if (!product) return res.status(404).json({ error: "Product not found" });
-
-  const restoredProduct = familyCart.products.create({
-    text: product.text,
-    bought: false,
-    updatedBy: req.body.updatedBy || "",
-  });
-
-  familyCart.products.push(restoredProduct);
-  product.deleteOne();
-  await cart.save();
-
-  res.json({
-    products: familyCart.products,
-    archived: familyCart.archivedProducts,
-  });
+    res.json(cart.archivedProducts);
+  } catch (err) {
+    const error = err as Error;
+    res.status(500).json({ error: error.message });
+  }
 });
 
 export default router;

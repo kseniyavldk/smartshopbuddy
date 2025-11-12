@@ -2,19 +2,14 @@ import { useEffect } from "react";
 import { useShoppingStore } from "../hooks/useShoppingStore";
 
 export function PurchaseHistory() {
-  const archiveItems = useShoppingStore((state) => state.archiveItems);
-  const isLoading = useShoppingStore((state) => state.isLoading);
-  const chatId = useShoppingStore((state) => state.chatId);
-  const fetchArchive = useShoppingStore((state) => state.fetchArchive);
-  const restoreFromArchive = useShoppingStore(
-    (state) => state.restoreFromArchive
-  );
+  const { archiveItems, isLoading, chatId, fetchArchive, restoreFromArchive } =
+    useShoppingStore();
 
   useEffect(() => {
     if (chatId) {
       fetchArchive();
     }
-  }, [chatId]);
+  }, [chatId, fetchArchive]);
 
   if (isLoading) {
     return (
@@ -45,8 +40,10 @@ export function PurchaseHistory() {
                 {item.text}
               </span>
               <button
-                onClick={() => restoreFromArchive(item.id)}
                 className="text-blue-500 hover:text-blue-700 transition-colors"
+                onClick={() => {
+                  restoreFromArchive(item.id);
+                }}
               >
                 🔄 Вернуть
               </button>
