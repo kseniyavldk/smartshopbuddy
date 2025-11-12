@@ -11,7 +11,6 @@ import toast, { Toaster } from "react-hot-toast";
 export default function App() {
   const { fetchCart, setMode, mode, chatId } = useShoppingStore();
   const [showPopup, setShowPopup] = useState(false);
-  const [error, setError] = useState("");
   const [isOnline, setIsOnline] = useState(true);
   const listRef = useRef<HTMLDivElement>(null);
   const scrollPos = useRef(0);
@@ -110,7 +109,6 @@ export default function App() {
           <JoinFamilyModal
             onClose={() => {
               setShowPopup(false);
-              setError("");
             }}
           />
         )}
