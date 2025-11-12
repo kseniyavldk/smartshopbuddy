@@ -12,7 +12,8 @@ export function JoinFamilyModal({ onClose }: Props) {
   const setMode = useShoppingStore((state) => state.setMode);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const handleSubmit = () => {
+  const handleSubmit = (e?: React.FormEvent) => {
+    e?.preventDefault();
     if (!inputId.trim()) {
       setError("Введите Chat ID семьи");
       return;
@@ -21,7 +22,10 @@ export function JoinFamilyModal({ onClose }: Props) {
       setError("Chat ID должен содержать только цифры");
       return;
     }
+
     setMode("family", inputId.trim());
+    localStorage.setItem("shopping-mode", "family");
+    localStorage.setItem("shopping-chatId", inputId.trim());
     toast.success("Вы вошли в семью!");
     setError("");
     onClose();
@@ -38,8 +42,10 @@ export function JoinFamilyModal({ onClose }: Props) {
   }, []);
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-10 backdrop-blur-md">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center relative">
+    <div className="fixed inset-0 flex items-center justify-center z-50">
+      <div className="absolute inset-0 bg-black/30 backdrop-blur-lg"></div>
+
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center">
         <button
           onClick={onClose}
           className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
