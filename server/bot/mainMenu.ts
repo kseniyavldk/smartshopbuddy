@@ -1,6 +1,6 @@
 import TelegramBot, { InlineKeyboardButton } from "node-telegram-bot-api";
-import { Cart } from "../models/Cart";
-import { escapeMarkdownV2, sendFamilyCart } from "./helpers";
+import Cart, { ICart, IProduct } from "../models/Cart";
+import { escapeMarkdownV2, sendCart } from "./helpers";
 
 export const registerMainMenu = (bot: TelegramBot) => {
   const mainMenuKeyboard: InlineKeyboardButton[][] = [
@@ -27,16 +27,18 @@ export const registerMainMenu = (bot: TelegramBot) => {
     const chatId = query.message?.chat.id;
     if (!chatId || !query.data) return;
 
-    const userCart = await Cart.findOne({ chatId });
-    if (!userCart || !userCart.activeFamilyId) {
+    const userCartDoc = await Cart.findOne({ chatId }).exec();
+    if (!userCartDoc || !userCartDoc.activeFamilyId) {
       await bot.answerCallbackQuery(query.id, {
         text: "❗ Сначала создайте или присоединитесь к семье.",
       });
       return;
     }
 
+    const userCart = userCartDoc as ICart & { carts?: ICart[] };
+    const carts = userCart.carts ?? [];
     const familyId = userCart.activeFamilyId;
-    const familyCart = userCart.carts.find((c) => c.familyId === familyId);
+    const familyCart = carts.find((c) => c.familyId === familyId);
 
     switch (query.data) {
       case "menu_cart": {
@@ -51,7 +53,8 @@ export const registerMainMenu = (bot: TelegramBot) => {
           familyCart.products.length > 0
             ? familyCart.products
                 .map(
-                  (p) => `${p.bought ? "✅" : "❌"} ${escapeMarkdownV2(p.text)}`
+                  (p: IProduct) =>
+                    `${p.bought ? "✅" : "❌"} ${escapeMarkdownV2(p.text)}`
                 )
                 .join("\n")
             : "пусто";
@@ -80,9 +83,9 @@ export const registerMainMenu = (bot: TelegramBot) => {
         }
 
         familyCart.products.splice(0, familyCart.products.length);
-        await userCart.save();
+        await userCartDoc.save();
 
-        await sendFamilyCart(bot, familyId, "🗑 Корзина очищена.");
+        await sendCart(bot, chatId, familyCart);
         await bot.answerCallbackQuery(query.id);
         break;
       }

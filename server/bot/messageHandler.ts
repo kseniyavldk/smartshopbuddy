@@ -1,6 +1,6 @@
 import TelegramBot, { Message } from "node-telegram-bot-api";
 import Cart, { ICart, IProduct } from "../models/Cart";
-import { escapeMarkdownV2, sendFamilyCart } from "./helpers";
+import { escapeMarkdownV2, sendCart } from "./helpers";
 
 export const registerMessageHandler = (bot: TelegramBot) => {
   bot.on("message", async (msg: Message) => {
@@ -22,9 +22,9 @@ export const registerMessageHandler = (bot: TelegramBot) => {
       }
 
       const carts = (userCart as ICart & { carts?: ICart[] }).carts ?? [];
-      const familyCart = carts.find((c) => c.familyId === activeFamilyId) as
-        | ICart
-        | undefined;
+      const familyCart = carts.find(
+        (c: ICart) => c.familyId === activeFamilyId
+      );
 
       if (!familyCart) {
         await bot.sendMessage(chatId, "❌ Не удалось найти семейную корзину.");
@@ -40,9 +40,7 @@ export const registerMessageHandler = (bot: TelegramBot) => {
         await bot.sendMessage(
           chatId,
           `ℹ️ Товар уже в корзине: ${escapeMarkdownV2(text)}`,
-          {
-            parse_mode: "MarkdownV2",
-          }
+          { parse_mode: "MarkdownV2" }
         );
         return;
       }
@@ -57,7 +55,7 @@ export const registerMessageHandler = (bot: TelegramBot) => {
       await userCart.save();
 
       const cartText = familyCart.products
-        .map((p) => `${p.bought ? "✅" : "❌"} ${p.text}`)
+        .map((p: IProduct) => `${p.bought ? "✅" : "❌"} ${p.text}`)
         .join("\n");
 
       const confirmation = `✅ "${escapeMarkdownV2(
@@ -66,20 +64,12 @@ export const registerMessageHandler = (bot: TelegramBot) => {
         cartText
       )}`;
 
-      try {
-        await bot.sendMessage(chatId, confirmation, {
-          parse_mode: "MarkdownV2",
-          disable_web_page_preview: true,
-        });
-      } catch (err) {
-        console.error("bot.sendMessage confirmation error:", err);
-      }
+      await bot.sendMessage(chatId, confirmation, {
+        parse_mode: "MarkdownV2",
+        disable_web_page_preview: true,
+      });
 
-      try {
-        await sendFamilyCart(bot, chatId, activeFamilyId);
-      } catch (err) {
-        console.error("sendFamilyCart error:", err);
-      }
+      await sendCart(bot, chatId, familyCart);
     } catch (error) {
       console.error("message handler error", error);
       try {
