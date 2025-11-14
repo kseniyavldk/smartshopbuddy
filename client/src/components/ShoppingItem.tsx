@@ -15,6 +15,7 @@ export function ShoppingItem({ item, onToggle, onRemove }: Props) {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
       className="flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors rounded-md"
+      style={{ backgroundColor: "#fff" }}
     >
       <div className="flex items-center">
         <input
@@ -22,7 +23,7 @@ export function ShoppingItem({ item, onToggle, onRemove }: Props) {
           type="checkbox"
           checked={item.bought}
           onChange={() => onToggle(String(item.id))}
-          className="w-4 h-4 text-blue-600 bg-white border-gray-300 rounded-sm focus:ring-blue-500 focus:ring-2"
+          className="w-4 h-4 text-blue-600 rounded-sm focus:ring-blue-500 focus:ring-2"
           style={{
             backgroundColor: "#fff",
             color: "#111",
@@ -31,11 +32,10 @@ export function ShoppingItem({ item, onToggle, onRemove }: Props) {
         />
         <label
           htmlFor={`checkbox-${item.id}`}
-          className={`ms-2 text-sm font-medium ${
-            item.bought ? "line-through text-gray-400" : "text-gray-900"
-          }`}
+          className="ms-2 text-sm font-medium"
           style={{
             color: item.bought ? "#aaa" : "#111",
+            textDecoration: item.bought ? "line-through" : "none",
           }}
         >
           {item.text}

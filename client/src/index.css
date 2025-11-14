@@ -15,19 +15,3 @@ select:focus {
   color: #111 !important;
   outline: 2px solid #3b82f6 !important;
 }
-
-html.dark input,
-html.dark textarea,
-html.dark select {
-  background-color: #222 !important;
-  color: #fff !important;
-  border-color: #555 !important;
-}
-
-html.dark input:focus,
-html.dark textarea:focus,
-html.dark select:focus {
-  background-color: #222 !important;
-  color: #fff !important;
-  outline: 2px solid #3b82f6 !important;
-}

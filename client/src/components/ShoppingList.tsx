@@ -26,7 +26,7 @@ export function ShoppingList({ onScrollSave }: Props) {
           📝 Список пуст. Добавьте первый товар!
         </p>
       ) : (
-        <ul className="divide-y divide-gray-200 border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 dark:bg-gray-800">
+        <ul className="divide-y divide-gray-200 border border-gray-200 rounded-lg shadow-sm">
           <AnimatePresence>
             {items.map((item: Item) => (
               <motion.li

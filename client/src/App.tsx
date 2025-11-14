@@ -80,7 +80,7 @@ export default function App() {
         <AddItemForm onAdded={restoreScroll} />
 
         <div className="mt-6" ref={listRef}>
-          <div className="max-h-[23rem] overflow-y-auto">
+          <div className="max-h-[15rem] overflow-y-auto">
             <ShoppingList onScrollSave={saveScroll} />
           </div>
         </div>
@@ -89,7 +89,7 @@ export default function App() {
           <h2 className="text-lg font-semibold mb-3 text-gray-800 dark:text-gray-200">
             📦 История покупок
           </h2>
-          <div className="max-h-[15rem] overflow-y-auto">
+          <div className="max-h-[10rem] overflow-y-auto">
             <PurchaseHistory />
           </div>
         </div>

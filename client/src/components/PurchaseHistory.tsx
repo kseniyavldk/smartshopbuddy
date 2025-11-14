@@ -26,19 +26,20 @@ export function PurchaseHistory() {
   }
 
   return (
-    <div className="mt-6">
+    <div>
       {archiveItems.length === 0 ? (
         <p className="text-gray-400 italic text-center">
           Пока нет архивированных товаров.
         </p>
       ) : (
-        <ul className="divide-y divide-gray-200 border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 dark:bg-gray-800">
+        <ul className="divide-y divide-gray-200 border border-gray-200 rounded-lg shadow-sm">
           {archiveItems.map((item) => (
             <li
               key={item.id}
               className="flex justify-between items-center px-4 py-3"
+              style={{ backgroundColor: "#fff", color: "#111" }}
             >
-              <span className="text-gray-700 dark:text-gray-300 line-through">
+              <span style={{ color: "#111", textDecoration: "line-through" }}>
                 {item.text}
               </span>
               <div className="flex gap-2">
