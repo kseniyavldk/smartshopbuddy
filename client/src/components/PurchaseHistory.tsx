@@ -27,10 +27,6 @@ export function PurchaseHistory() {
 
   return (
     <div className="mt-6">
-      <h2 className="text-lg font-semibold mb-3 text-gray-800 dark:text-gray-200">
-        📦 История покупок
-      </h2>
-
       {archiveItems.length === 0 ? (
         <p className="text-gray-400 italic text-center">
           Пока нет архивированных товаров.

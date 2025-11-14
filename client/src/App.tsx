@@ -4,7 +4,6 @@ import { AddItemForm } from "./components/AddItemForm";
 import { ShoppingList } from "./components/ShoppingList";
 import { useShoppingStore } from "./hooks/useShoppingStore";
 import { PurchaseHistory } from "./components/PurchaseHistory";
-import { FamilySelector } from "./components/FamilySelector";
 import { JoinFamilyModal } from "./components/JoinFamilyModal";
 import toast, { Toaster } from "react-hot-toast";
 
@@ -81,13 +80,19 @@ export default function App() {
         <AddItemForm onAdded={restoreScroll} />
 
         <div className="mt-6" ref={listRef}>
-          <ShoppingList onScrollSave={saveScroll} />
-        </div>
-        <div className="mt-6">
-          <PurchaseHistory />
+          <div className="max-h-[23rem] overflow-y-auto">
+            <ShoppingList onScrollSave={saveScroll} />
+          </div>
         </div>
 
-        {mode === "family" && chatId && <FamilySelector />}
+        <div className="mt-6" ref={listRef}>
+          <h2 className="text-lg font-semibold mb-3 text-gray-800 dark:text-gray-200">
+            📦 История покупок
+          </h2>
+          <div className="max-h-[15rem] overflow-y-auto">
+            <PurchaseHistory />
+          </div>
+        </div>
 
         {mode === "local" || (mode === "family" && !chatId) ? (
           <button
