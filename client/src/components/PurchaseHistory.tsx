@@ -2,8 +2,14 @@ import { useEffect } from "react";
 import { useShoppingStore } from "../hooks/useShoppingStore";
 
 export function PurchaseHistory() {
-  const { archiveItems, isLoading, chatId, fetchArchive, restoreFromArchive } =
-    useShoppingStore();
+  const {
+    archiveItems,
+    isLoading,
+    chatId,
+    fetchArchive,
+    restoreFromArchive,
+    removeItem,
+  } = useShoppingStore();
 
   useEffect(() => {
     if (chatId) {
@@ -39,14 +45,20 @@ export function PurchaseHistory() {
               <span className="text-gray-700 dark:text-gray-300 line-through">
                 {item.text}
               </span>
-              <button
-                className="text-blue-500 hover:text-blue-700 transition-colors"
-                onClick={() => {
-                  restoreFromArchive(item.id);
-                }}
-              >
-                🔄 Вернуть
-              </button>
+              <div className="flex gap-2">
+                <button
+                  className="text-blue-500 hover:text-blue-700 transition-colors"
+                  onClick={() => restoreFromArchive(item.id)}
+                >
+                  🔄
+                </button>
+                <button
+                  className="text-red-500 hover:text-red-700 transition-colors"
+                  onClick={() => removeItem(item.id)}
+                >
+                  🗑
+                </button>
+              </div>
             </li>
           ))}
         </ul>

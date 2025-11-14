@@ -10,7 +10,7 @@ router.get("/:chatId", async (req, res) => {
     const carts = await Cart.find({ chatId }).lean();
 
     res.json({
-      families: carts.map(c => ({ familyId: c.familyId, id: c._id })) || [],
+      families: carts.map((c) => ({ familyId: c.familyId, id: c._id })) || [],
       activeFamilyId: null,
     });
   } catch (err) {
@@ -54,40 +54,94 @@ router.put("/:chatId/switch/:familyId", async (req, res) => {
   }
 });
 
-router.delete("/:chatId/remove/:itemId", checkRole("admin"), async (req, res) => {
-  try {
-    const chatId = req.params.chatId;
-    const { itemId } = req.params;
+router.delete(
+  "/:chatId/remove/:itemId",
+  checkRole("admin"),
+  async (req, res) => {
+    try {
+      const chatId = req.params.chatId;
+      const { itemId } = req.params;
 
-    const cart = await Cart.findOne({ chatId });
-    if (!cart) return res.status(404).json({ error: "Cart not found" });
+      const cart = await Cart.findOne({ chatId });
+      if (!cart) return res.status(404).json({ error: "Cart not found" });
 
-    await Cart.findByIdAndDelete(itemId);
-    await cart.updateOne({ $pull: { products: { _id: itemId } } });
+      await Cart.findByIdAndDelete(itemId);
+      await cart.updateOne({ $pull: { products: { _id: itemId } } });
 
-    const updated = await Cart.findById(cart._id);
-    res.json(updated);
-  } catch (err) {
-    console.error("DELETE /families/:chatId/remove/:itemId error", err);
-    res.status(500).json({ error: "Server error" });
+      const updated = await Cart.findById(cart._id);
+      res.json(updated);
+    } catch (err) {
+      console.error("DELETE /families/:chatId/remove/:itemId error", err);
+      res.status(500).json({ error: "Server error" });
+    }
   }
-});
+);
 
-router.post("/:chatId/archive/:itemId", checkRole("admin"), async (req, res) => {
-  try {
-    const chatId = req.params.chatId;
-    const { itemId } = req.params;
+router.post(
+  "/:chatId/archive/:itemId",
+  checkRole("admin"),
+  async (req, res) => {
+    try {
+      const chatId = req.params.chatId;
+      const { itemId } = req.params;
 
-    const item = await Cart.findById(itemId);
-    if (!item) return res.status(404).json({ error: "Item not found" });
+      const cart = await Cart.findOne({ chatId });
+      if (!cart) return res.status(404).json({ error: "Cart not found" });
 
-    await item.deleteOne();
-    res.json({ message: "Item archived (deleted from active cart)" });
-  } catch (err) {
-    console.error("POST /families/:chatId/archive/:itemId error", err);
-    res.status(500).json({ error: "Server error" });
+      const productIndex = cart.products.findIndex(
+        (p) => p._id?.toString() === itemId
+      );
+      if (productIndex === -1)
+        return res.status(404).json({ error: "Item not found" });
+
+      const product = cart.products[productIndex];
+      cart.archivedProducts.push({
+        _id: product._id,
+        text: product.text,
+        bought: product.bought,
+        updatedBy: product.updatedBy,
+        updatedAt: product.updatedAt,
+        archivedAt: new Date(),
+      });
+
+      cart.products.splice(productIndex, 1);
+      await cart.save();
+
+      res.json({ message: "Item archived", product });
+    } catch (err) {
+      console.error("POST /families/:chatId/archive/:itemId error", err);
+      res.status(500).json({ error: "Server error" });
+    }
   }
-});
+);
+
+router.delete(
+  "/:chatId/archive/:itemId",
+  checkRole("admin"),
+  async (req, res) => {
+    try {
+      const chatId = req.params.chatId;
+      const { itemId } = req.params;
+
+      const cart = await Cart.findOne({ chatId });
+      if (!cart) return res.status(404).json({ error: "Cart not found" });
+
+      const archivedIndex = cart.archivedProducts.findIndex(
+        (p) => p._id?.toString() === itemId
+      );
+      if (archivedIndex === -1)
+        return res.status(404).json({ error: "Item not found in archive" });
+
+      cart.archivedProducts.splice(archivedIndex, 1);
+      await cart.save();
+
+      res.json({ message: "Item deleted from archive" });
+    } catch (err) {
+      console.error("DELETE /families/:chatId/archive/:itemId error", err);
+      res.status(500).json({ error: "Server error" });
+    }
+  }
+);
 
 router.get("/:chatId/items", async (req, res) => {
   try {

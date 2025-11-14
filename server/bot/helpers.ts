@@ -26,32 +26,23 @@ const splitMessage = (text: string, max = 3900) => {
   return parts;
 };
 
-export const getUserFamilyCart = async (
-  chatId: string,
-  familyId?: string
+export const generateFamilyId = (chatId: string | number) => {
+  const randomPart = Math.random().toString(36).substring(2, 8).toUpperCase();
+  return `${chatId}-${randomPart}`;
+};
+
+export const getUserCart = async (
+  chatId: string | number
 ): Promise<ICart | null> => {
-  const query: any = { chatId };
-  if (familyId) query.familyId = familyId;
-
-  const cartDoc = await Cart.findOne(query).exec();
-  if (!cartDoc) return null;
-
-  const cart = cartDoc.toObject() as ICart;
-
-  cart.products = Array.isArray(cart.products) ? cart.products : [];
-  cart.archivedProducts = Array.isArray(cart.archivedProducts)
-    ? cart.archivedProducts
-    : [];
-
+  const cart = await Cart.findOne({ chatId: String(chatId) }).exec();
   return cart;
 };
 
-export const sendFamilyCart = async (
+export const sendCart = async (
   bot: TelegramBot,
-  chatId: string,
-  familyId?: string
+  chatId: string | number,
+  cart: ICart
 ) => {
-  const cart = await getUserFamilyCart(chatId, familyId);
   if (!cart || cart.products.length === 0) {
     try {
       await bot.sendMessage(chatId, "Корзина пуста");
@@ -61,7 +52,7 @@ export const sendFamilyCart = async (
     return;
   }
 
-  const lines = cart.products.map((p, idx) => {
+  const lines = cart.products.map((p: IProduct, idx: number) => {
     const name = escapeMarkdownV2(p.text);
     const bought = p.bought ? "✅" : "❌";
     return `${idx + 1}. ${name} ${bought}`;
@@ -70,15 +61,13 @@ export const sendFamilyCart = async (
   const header = cart.familyId
     ? `Корзина (${escapeMarkdownV2(cart.familyId)}):\n`
     : "Корзина:\n";
-  const text = header + lines.join("\n");
 
+  const text = header + lines.join("\n");
   const parts = splitMessage(text);
+
   for (const part of parts) {
     try {
-      await bot.sendMessage(chatId, part, {
-        parse_mode: "MarkdownV2",
-        disable_web_page_preview: true,
-      });
+      await bot.sendMessage(chatId, part, { parse_mode: "MarkdownV2" });
     } catch (err) {
       console.error("bot.sendMessage chunk error:", err);
     }

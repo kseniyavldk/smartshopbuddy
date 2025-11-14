@@ -1,7 +1,7 @@
 import mongoose, { Schema, Document } from "mongoose";
 
 export interface IProduct {
-   _id?: mongoose.Types.ObjectId;
+  _id?: mongoose.Types.ObjectId;
   text: string;
   bought: boolean;
   updatedBy?: string;
@@ -12,6 +12,8 @@ export interface IProduct {
 export interface ICart extends Document {
   chatId: string;
   familyId?: string;
+  activeFamilyId?: string;
+  familyRoles?: Map<string, "admin" | "member">;
   products: IProduct[];
   archivedProducts: IProduct[];
   createdAt: Date;
@@ -30,6 +32,12 @@ const CartSchema = new Schema<ICart>(
   {
     chatId: { type: String, required: true, index: true },
     familyId: { type: String },
+    activeFamilyId: { type: String },
+    familyRoles: {
+      type: Map,
+      of: { type: String, enum: ["admin", "member"], default: "member" },
+      default: {},
+    },
     products: { type: [ProductSchema], default: [] },
     archivedProducts: { type: [ProductSchema], default: [] },
   },

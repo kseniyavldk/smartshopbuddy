@@ -1,46 +1,29 @@
 import TelegramBot, { CallbackQuery } from "node-telegram-bot-api";
-import { Cart } from "../models/Cart";
-import { escapeMarkdownV2, sendFamilyCart } from "./helpers";
+import Cart, { ICart } from "../models/Cart";
+import { escapeMarkdownV2, sendCart } from "./helpers";
 
 export const registerCallbackHandler = (bot: TelegramBot) => {
   bot.on("callback_query", async (query: CallbackQuery) => {
     try {
       if (!query.data || !query.from) return;
 
-      const chatId = query.from.id;
-      const userCart = await Cart.findOne({ chatId });
+      const chatId = query.from.id.toString();
+      const userCart: ICart | null = await Cart.findOne({ chatId });
+      if (!userCart) return;
 
-      if (!userCart || !userCart.activeFamilyId) return;
+      const index = parseInt(query.data.replace("bought_", ""), 10);
+      if (isNaN(index) || !userCart.products[index]) return;
 
-      const familyId = userCart.activeFamilyId;
-
-      const familyCart = userCart.carts.find(
-        (c) => c.familyId === familyId
-      );
-      if (!familyCart) return;
-
-      const index = parseInt(query.data.replace("bought_", ""));
-      if (isNaN(index) || !familyCart.products[index]) return;
-
-      familyCart.products[index].bought = true;
+      userCart.products[index].bought = !userCart.products[index].bought;
+      userCart.products[index].updatedAt = new Date();
 
       await userCart.save();
 
-      const cartText = familyCart.products
-        .map((p) => `${p.bought ? "✅" : "❌"} ${p.text}`)
-        .join("\n");
+      await sendCart(bot, chatId, userCart);
 
-      await sendFamilyCart(
-        bot,
-        familyId,
-        `🛒 "${escapeMarkdownV2(
-          familyCart.products[index].text
-        )}" отмечен как купленный.\n\nТекущий список:\n${escapeMarkdownV2(
-          cartText
-        )}`
-      );
-
-      await bot.answerCallbackQuery(query.id);
+      if (query.id) {
+        await bot.answerCallbackQuery(query.id, { text: "Обновлено" });
+      }
     } catch (error) {
       console.error("callback handler error", error);
     }

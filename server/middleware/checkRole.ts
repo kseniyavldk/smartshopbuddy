@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { Cart } from "../models/Cart";
+import Cart from "../models/Cart";
 import { parseChatId } from "../utils/parseChatId";
 
 export function checkRole(requiredRole: "admin" | "member") {
@@ -16,7 +16,9 @@ export function checkRole(requiredRole: "admin" | "member") {
       if (!activeFamilyId)
         return res.status(400).json({ error: "No active family selected" });
 
-      const userRole = cart.familyRoles.get(activeFamilyId) || "member";
+      const rolesMap =
+        cart.familyRoles || new Map<string, "admin" | "member">();
+      const userRole = rolesMap.get(activeFamilyId) || "member";
 
       if (requiredRole === "admin" && userRole !== "admin") {
         return res.status(403).json({ error: "Access denied: admin only" });
