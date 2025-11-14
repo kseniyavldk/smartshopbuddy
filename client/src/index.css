@@ -1,15 +1,15 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 input,
 textarea,
 select {
-  @apply text-gray-900 bg-white;
+  color: #111 !important;
+  background-color: #fff !important;
 }
 
 html.dark input,
 html.dark textarea,
 html.dark select {
-  @apply text-white bg-[#222];
+  color: #fff !important;
+  background-color: #222 !important;
 }
