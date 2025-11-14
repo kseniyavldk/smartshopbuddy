@@ -22,13 +22,21 @@ export function ShoppingItem({ item, onToggle, onRemove }: Props) {
           type="checkbox"
           checked={item.bought}
           onChange={() => onToggle(String(item.id))}
-          className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded-sm focus:ring-blue-500 focus:ring-2"
+          className="w-4 h-4 text-blue-600 bg-white border-gray-300 rounded-sm focus:ring-blue-500 focus:ring-2"
+          style={{
+            backgroundColor: "#fff",
+            color: "#111",
+            borderColor: "#ccc",
+          }}
         />
         <label
           htmlFor={`checkbox-${item.id}`}
-          className={`ms-2 text-sm font-medium text-gray-900 ${
-            item.bought ? "line-through text-gray-400" : ""
+          className={`ms-2 text-sm font-medium ${
+            item.bought ? "line-through text-gray-400" : "text-gray-900"
           }`}
+          style={{
+            color: item.bought ? "#aaa" : "#111",
+          }}
         >
           {item.text}
         </label>
