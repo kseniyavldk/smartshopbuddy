@@ -7,16 +7,22 @@ import { registerMainMenu } from "./mainMenu";
 
 let bot: TelegramBot;
 
-if (USE_WEBHOOK) {
-  bot = new TelegramBot(TOKEN, { webHook: true });
-  bot.setWebHook(`${URL}/bot${TOKEN}`);
-} else {
-  bot = new TelegramBot(TOKEN, { polling: true });
-}
+export const startBot = async () => {
+  if (USE_WEBHOOK) {
+    bot = new TelegramBot(TOKEN, { webHook: true });
+    await bot.setWebHook(`${URL}/bot${TOKEN}`);
+    console.log("📡 Бот работает через WEBHOOK");
+  } else {
+    bot = new TelegramBot(TOKEN, { polling: true });
+    console.log("🔄 Бот работает через POLLING");
+  }
 
-registerCommands(bot);
-registerMainMenu(bot);
-registerMessageHandler(bot);
-registerCallbackHandler(bot);
+  registerCommands(bot);
+  registerMainMenu(bot);
+  registerMessageHandler(bot);
+  registerCallbackHandler(bot);
+
+  console.log("🤖 Telegram Bot started");
+};
 
 export { bot };

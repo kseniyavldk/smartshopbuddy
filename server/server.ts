@@ -1,22 +1,21 @@
 import mongoose from "mongoose";
-import { app } from "./index";
+import { app } from "./app";
 import { PORT, MONGO_URI } from "./config";
+import { startBot } from "./bot";
 
 async function start() {
   try {
     console.log("🌐 Connecting to MongoDB...");
-    await mongoose.connect(MONGO_URI, {
-      dbName: "smartshopbuddy",
-    });
+    await mongoose.connect(MONGO_URI, { dbName: "smartshopbuddy" });
     console.log("✅ MongoDB connected");
 
-    mongoose.connection.on("disconnected", () => console.log("⚠️ MongoDB disconnected"));
-    mongoose.connection.on("error", (err) => console.error("❌ MongoDB connection error:", err));
+    await startBot();
 
-    app.listen(PORT, () => console.log(`🚀 API running on http://localhost:${PORT}`));
+    app.listen(PORT, () =>
+      console.log(`🚀 API running on http://localhost:${PORT}`)
+    );
   } catch (err) {
-    console.error("❌ MongoDB connection failed:", err);
-    process.exit(1);
+    console.error("❌ Failed to start server:", err);
   }
 }
 

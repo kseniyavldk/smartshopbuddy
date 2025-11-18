@@ -1,2 +1,41 @@
 # smartshopbuddy
-A simple and intuitive shopping list application built with React, TypeScript, and Zustand for state management. Designed to help users easily add, toggle, and remove shopping items. The app features a clean UI styled with Tailwind CSS and ensures type safety with strict TypeScript definitions. Perfect for managing your shopping needs efficiently.
+
+🛒 SmartShopBuddy — семейная корзина покупок (Web + Telegram Bot)
+
+SmartShopBuddy — приложение для совместного ведения списка покупок.
+Оно объединяет Telegram-бота, веб-приложение и сервер с MongoDB, позволяя нескольким пользователям пользоваться общей "семейной корзиной".
+
+Вы можете добавлять товары, отмечать купленные, вести архив и переключаться между семьями. Всё синхронизируется между Telegram и веб-интерфейсом.
+
+🚀 Функциональность
+
+👪 Семьи
+Создание собственной семьи (группы)
+Переключение между семьями
+Общая корзина для всех участников
+
+🤖 Telegram-бот
+Добавление товаров одним сообщением
+Просмотр корзины
+Пометка товаров как купленных
+Архивация и удаление
+Быстрый выбор семьи
+
+🌐 Web-интерфейс (React + Zustand)
+Полное управление корзиной
+Архив покупок
+Просмотр семей, переключение
+Два режима:
+Local Mode — локальное хранение
+Server Mode — работа с MongoDB
+
+🗄 Backend (Node.js + Express + MongoDB)
+REST API для работы с корзиной и семьями
+Гибкая структура данных
+Автоматическое создание корзины при первом запросе
+
+![Главная страница]({C70AE5C9-CCED-4135-9984-1D6A993546FB}.png)
+
+![Вход в семью]({BCDEABF5-6FFA-4B59-ABEC-A339B94014AE}.png)
+
+![Список продуктов семьи]({F2CE6DDA-15C3-4C1E-A380-1CEE54DEFA47}.png)
