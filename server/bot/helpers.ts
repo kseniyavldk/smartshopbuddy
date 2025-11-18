@@ -31,6 +31,10 @@ export const generateFamilyId = (chatId: string | number) => {
   return `${chatId}-${randomPart}`;
 };
 
+export const generateFamilyCode = (): string => {
+  return Math.random().toString(36).substring(2, 8).toUpperCase();
+};
+
 export const getUserCart = async (
   chatId: string | number
 ): Promise<ICart | null> => {

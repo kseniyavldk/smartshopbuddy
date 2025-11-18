@@ -8,6 +8,7 @@ import {
   sendCart,
   getUserCart,
   generateFamilyId,
+  generateFamilyCode,
 } from "./helpers";
 
 const safeSend = async (
@@ -98,73 +99,78 @@ export const registerCommands = (bot: TelegramBot) => {
 
   // /create — создать семью
   bot.onText(/\/create/, async (msg) => {
-    const chatId = msg.chat.id;
+    const chatId = msg.chat.id.toString();
     try {
-      const familyId = generateFamilyId(chatId);
-      let cart = await getUserCart(chatId.toString());
+      const code = generateFamilyCode();
+      let cart = await getUserCart(chatId);
 
       if (!cart) {
         cart = new Cart({
-          chatId: chatId.toString(),
-          familyId,
-          activeFamilyId: familyId,
+          chatId,
+          familyId: code,
+          activeFamilyId: code,
+          familyRoles: new Map([[code, "admin"]]),
           products: [],
           archivedProducts: [],
-          familyRoles: new Map([[familyId, "admin"]]),
         });
       } else {
-        cart.familyId = familyId;
-        cart.activeFamilyId = familyId;
-        cart.familyRoles?.set(familyId, "admin");
+        cart.familyId = code;
+        cart.activeFamilyId = code;
+        cart.familyRoles?.set(code, "admin");
       }
 
       await cart.save();
       await safeSend(
         bot,
-        chatId,
-        `🎉 Семья создана!\nКод для присоединения: *${familyId}*`
+        msg.chat.id,
+        `🎉 Семья создана!\nКод для присоединения: *${code}*`
       );
     } catch (err) {
       console.error("/create handler error", err);
-      safeSend(bot, chatId, "❌ Произошла ошибка при создании семьи.");
+      safeSend(bot, msg.chat.id, "❌ Произошла ошибка при создании семьи.");
     }
   });
 
-  // /join — присоединиться к семье
+  // /join <код> — присоединиться к семье
   bot.onText(/\/join (.+)/, async (msg, match) => {
+    if (!msg.chat || !match) return;
+
     const chatId = msg.chat.id;
+    const familyCode = match[1]?.trim().toUpperCase();
+
+    if (!familyCode) {
+      return safeSend(
+        bot,
+        chatId,
+        "❗ Укажите код семьи. Пример: /join ABC123"
+      );
+    }
+
     try {
-      const familyId = match?.[1]?.trim();
-      if (!familyId)
-        return safeSend(
-          bot,
-          chatId,
-          "❗ Укажите код семьи. Пример: /join <код>"
-        );
-
-      const existingCart = await Cart.findOne({ familyId });
-      if (!existingCart)
+      const existingCart = await Cart.findOne({ familyId: familyCode }).exec();
+      if (!existingCart) {
         return safeSend(bot, chatId, "❌ Семья с таким кодом не найдена.");
-
-      let cart = await getUserCart(chatId.toString());
-      if (!cart) {
-        cart = new Cart({
-          chatId: chatId.toString(),
-          familyId,
-          activeFamilyId: familyId,
-          products: [],
-          archivedProducts: [],
-          familyRoles: new Map([[familyId, "member"]]),
-        });
-      } else {
-        cart.activeFamilyId = familyId;
-        cart.familyRoles?.set(familyId, "member");
       }
 
-      await cart.save();
-      await safeSend(bot, chatId, `✅ Вы присоединились к семье ${familyId}`);
+      let userCart = await getUserCart(chatId);
+      if (!userCart) {
+        userCart = new Cart({
+          chatId: chatId.toString(),
+          familyId: familyCode,
+          activeFamilyId: familyCode,
+          familyRoles: new Map([[familyCode, "member"]]),
+          products: [],
+          archivedProducts: [],
+        });
+      } else {
+        userCart.activeFamilyId = familyCode;
+        userCart.familyRoles?.set(familyCode, "member");
+      }
+
+      await userCart.save();
+      await safeSend(bot, chatId, `✅ Вы присоединились к семье ${familyCode}`);
     } catch (err) {
-      console.error("/join handler error", err);
+      console.error("/join handler error:", err);
       safeSend(bot, chatId, "❌ Произошла ошибка при присоединении к семье.");
     }
   });
